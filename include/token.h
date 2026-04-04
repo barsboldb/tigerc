@@ -24,6 +24,7 @@ typedef enum {
   TOK_FUNCTION,
   TOK_VAR,
   TOK_TYPE,
+  TOK_ARRAY,
 
   // Operators
   TOK_PLUS,
@@ -55,10 +56,10 @@ typedef enum {
   // Special
   TOK_EOF,
   TOK_ERROR,
-} token_type;
+} token_kind_t;
 
 typedef struct {
-  token_type type;
+  token_kind_t kind;
   union {
     int   int_val;
     char *str_val;
@@ -67,6 +68,6 @@ typedef struct {
   int col;
 } token_t;
 
-const char *token_type_name(token_type type);
+const char *token_kind_name(token_kind_t type);
 
 #endif

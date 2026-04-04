@@ -10,12 +10,12 @@ int main(void) {
   lexer_t lexer1 = lexer_init(src1);
 
   token_t t;
-  while ((t = next_token(&lexer)).type != TOK_EOF) {
-    printf("%s\n", token_type_name(t.type));
+  while ((t = next_token(&lexer)).kind != TOK_EOF) {
+    printf("%s\n", token_type_name(t.kind));
   }
   printf("\n");
 
-  while ((t = next_token(&lexer1)).type != TOK_EOF) {
-    printf("%s\n", token_type_name(t.type));
+  while ((t = next_token(&lexer1)).kind != TOK_EOF) {
+    printf("%s\n", token_type_name(t.kind));
   }
 }

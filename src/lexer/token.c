@@ -1,6 +1,6 @@
 #include "token.h"
 
-const char *token_type_name(token_type type) {
+const char *token_kind_name(token_kind_t type) {
   switch (type) {
     case TOK_INT: return "TOK_INT";
     case TOK_STRING: return "TOK_STRING";
@@ -20,6 +20,7 @@ const char *token_type_name(token_type type) {
     case TOK_FUNCTION: return "TOK_FUNCTION";
     case TOK_VAR: return "TOK_VAR";
     case TOK_TYPE: return "TOK_TYPE";
+    case TOK_ARRAY: return "TOK_ARRY";
     case TOK_PLUS: return "TOK_PLUS";
     case TOK_MINUS: return "TOK_MINUS";
     case TOK_STAR: return "TOK_STAR";

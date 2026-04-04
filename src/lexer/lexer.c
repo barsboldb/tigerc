@@ -13,11 +13,11 @@ lexer_t lexer_init(const char *src) {
   };
 }
 
-char peek(lexer_t *lexer) {
+static char peek(lexer_t *lexer) {
   return lexer->src[lexer->pos];
 }
 
-char advance(lexer_t *lexer) {
+static char advance(lexer_t *lexer) {
   char c = lexer->src[lexer->pos++];
   if (c == '\n') {
     lexer->line++;
@@ -28,17 +28,17 @@ char advance(lexer_t *lexer) {
   return c;
 }
 
-int is_whitespace(char c) {
+static int is_whitespace(char c) {
   return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 }
 
-void skip_whitespace(lexer_t *lexer) {
+static void skip_whitespace(lexer_t *lexer) {
   while (is_whitespace(peek(lexer))) {
     advance(lexer);
   }
 }
 
-int skip_comment(lexer_t *lexer) {
+static int skip_comment(lexer_t *lexer) {
   int depth = 1;
   while (depth > 0) {
     char c = advance(lexer);
@@ -54,7 +54,7 @@ int skip_comment(lexer_t *lexer) {
   return 0;
 }
 
-token_t lex_number(lexer_t *lexer, char first, int line, int col) {
+static token_t lex_number(lexer_t *lexer, char first, int line, int col) {
   char buffer[256];
   int pos = 0;
   buffer[pos++] = first;
@@ -71,7 +71,7 @@ token_t lex_number(lexer_t *lexer, char first, int line, int col) {
   return (token_t){ TOK_INT, .int_val = val, line, col };
 }
 
-token_t lex_string(lexer_t *lexer, int line, int col) {
+static token_t lex_string(lexer_t *lexer, int line, int col) {
   char *buffer = malloc(sizeof(char) * 256);
   int pos = 0;
 
@@ -101,7 +101,7 @@ token_t lex_string(lexer_t *lexer, int line, int col) {
   return (token_t){ TOK_STRING, .str_val = buffer, line, col};
 }
 
-token_t lex_id_or_keyword(lexer_t *lexer, char first, int line, int col) {
+static token_t lex_id_or_keyword(lexer_t *lexer, char first, int line, int col) {
   char *buffer = malloc(256);
   int pos = 0;
 
