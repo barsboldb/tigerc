@@ -6,15 +6,17 @@
 expr_t *parse_expr(parser_t *p);
 
 parser_t parser_init(lexer_t lexer) {
-  return (parser_t){
-    .lexer = lexer,
-    .current = next_token(&lexer),
-  };
+  parser_t p;
+  p.lexer   = lexer;
+  p.current = next_token(&p.lexer);
+  p.next    = next_token(&p.lexer);
+  return p;
 }
 
 static token_t advance(parser_t *parser) {
   token_t old = parser->current;
-  parser->current = next_token(&parser->lexer);
+  parser->current = parser->next;
+  parser->next    = next_token(&parser->lexer);
   return old;
 }
 
@@ -302,6 +304,8 @@ static expr_t *parse_let(parser_t *p) {
     }
   }
 
+  e->let.dec_list = declist;
+
   if (expect(p, TOK_IN) < 0) { free(e); return NULL; }
 
   while (p->current.kind != TOK_END) {
@@ -322,6 +326,45 @@ static expr_t *parse_let(parser_t *p) {
   return e;
 }
 
+static expr_t *parse_assign(parser_t *p) {
+  expr_t *e = make_expr(EXPR_ASSIGN, p->current.line, p->current.col);
+  e->assign.var = p->current.str_val;
+  if (expect(p, TOK_ID) < 0) { return NULL; }
+  if (expect(p, TOK_ASSIGN) < 0) { return NULL; }
+  e->assign.rhs = parse_expr(p);
+
+  return e;
+}
+static expr_t *parse_call(parser_t *p) {
+  expr_t *e = make_expr(EXPR_CALL, p->current.line, p->current.col);
+  e->call.id = p->current.str_val;
+  if (expect(p, TOK_ID) < 0) { return NULL; }
+  if (expect(p, TOK_LPAREN) < 0) { return NULL; }
+  e->call.arg_list = NULL;
+  while (p->current.kind != TOK_RPAREN) {
+    if (p->current.kind == TOK_EOF) return NULL;
+    expr_t *arg = parse_expr(p);
+    e->call.arg_list = exprlist_insert(e->call.arg_list, arg);
+    if (p->current.kind == TOK_COMMA) advance(p);
+  }
+  if (expect(p, TOK_RPAREN) < 0) {
+    return NULL;
+  }
+  return e;
+}
+static expr_t *parse_array_index(parser_t *p) {
+  return NULL;
+}
+static expr_t *parse_field_access(parser_t *p) {
+  return NULL;
+}
+static expr_t *parse_id(parser_t *p) {
+  expr_t *e = make_expr(EXPR_ID, p->current.line, p->current.col);
+  e->id = p->current.str_val;
+  if (expect(p, TOK_ID) < 0) return NULL;
+  return e;
+}
+
 expr_t *parse_expr(parser_t *p) {
   switch (p->current.kind) {
     case TOK_INT:    return parse_int(p);
@@ -331,6 +374,12 @@ expr_t *parse_expr(parser_t *p) {
     case TOK_WHILE:  return parse_while(p);
     case TOK_FOR:    return parse_for(p);
     case TOK_LET:    return parse_let(p);
+    case TOK_ID:
+      if (p->next.kind == TOK_ASSIGN)   return parse_assign(p);
+      if (p->next.kind == TOK_LPAREN)   return parse_call(p);
+      if (p->next.kind == TOK_LBRACKET) return parse_array_index(p);
+      if (p->next.kind == TOK_DOT)      return parse_field_access(p);
+      return parse_id(p);
     default: return NULL;
   }
 }

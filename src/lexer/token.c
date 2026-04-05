@@ -20,7 +20,7 @@ const char *token_kind_name(token_kind_t type) {
     case TOK_FUNCTION: return "TOK_FUNCTION";
     case TOK_VAR: return "TOK_VAR";
     case TOK_TYPE: return "TOK_TYPE";
-    case TOK_ARRAY: return "TOK_ARRY";
+    case TOK_ARRAY: return "TOK_ARRAY";
     case TOK_PLUS: return "TOK_PLUS";
     case TOK_MINUS: return "TOK_MINUS";
     case TOK_STAR: return "TOK_STAR";
