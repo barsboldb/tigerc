@@ -3,7 +3,7 @@
 #include "parser.h"
 #include "ast.h"
 
-expr_t *parse_expr(parser_t *p);
+static expr_t *parse_primary(parser_t *p);
 
 parser_t parser_init(lexer_t lexer) {
   parser_t p;
@@ -11,6 +11,42 @@ parser_t parser_init(lexer_t lexer) {
   p.current = next_token(&p.lexer);
   p.next    = next_token(&p.lexer);
   return p;
+}
+
+static int get_infix_bp(token_kind_t kind) {
+  switch (kind) {
+    case TOK_OR:    return 2;
+    case TOK_AND:   return 4;
+    case TOK_EQ:
+    case TOK_NEQ:
+    case TOK_LT:
+    case TOK_GT:
+    case TOK_LE:
+    case TOK_GE:    return 6;
+    case TOK_PLUS:
+    case TOK_MINUS: return 8;
+    case TOK_STAR:
+    case TOK_SLASH: return 10;
+    default:        return 0;
+  }
+}
+
+static binop_t get_binop_kind(token_kind_t kind) {
+  switch (kind) {
+    case TOK_OR:    return OP_OR;
+    case TOK_AND:   return OP_AND;
+    case TOK_EQ:    return OP_EQ;
+    case TOK_NEQ:   return OP_NEQ;
+    case TOK_LT:    return OP_LT;
+    case TOK_GT:    return OP_GT;
+    case TOK_LE:    return OP_LE;
+    case TOK_GE:    return OP_GE;
+    case TOK_PLUS:  return OP_ADD;
+    case TOK_MINUS: return OP_SUB;
+    case TOK_STAR:  return OP_MUL;
+    case TOK_SLASH: return OP_DIV;
+    default:        return -1;
+  }
 }
 
 static token_t advance(parser_t *parser) {
@@ -56,6 +92,14 @@ static dec_t *make_dec(dec_kind_t kind) {
   return d;
 }
 
+static expr_t *make_binop(binop_t kind, expr_t *lhs, expr_t *rhs, int line, int col) {
+  expr_t *e = make_expr(EXPR_BINOP, line, col);
+  e->binop.left = lhs;
+  e->binop.right = rhs;
+  e->binop.op = kind;
+  return e;
+}
+
 static expr_t *parse_int(parser_t *p) {
   expr_t *e = make_expr(EXPR_INT, p->current.line, p->current.col);
   e->int_val = p->current.int_val;
@@ -79,14 +123,14 @@ static expr_t *parse_nil(parser_t *p) {
 static expr_t *parse_if(parser_t *p) {
   expr_t *e = make_expr(EXPR_IF, p->current.line, p->current.col);
   advance(p);
-  e->if_.cond = parse_expr(p);
+  e->if_.cond = parse_primary(p);
 
   if (expect(p, TOK_THEN) < 0) return NULL;
-  e->if_.then = parse_expr(p);
+  e->if_.then = parse_primary(p);
 
   if (p->current.kind == TOK_ELSE) {
     advance(p);
-    e->if_.else_ = parse_expr(p);
+    e->if_.else_ = parse_primary(p);
   } else {
     e->if_.else_ = NULL;
   }
@@ -98,10 +142,10 @@ static expr_t *parse_while(parser_t *p) {
   expr_t *e = make_expr(EXPR_WHILE, p->current.line, p->current.col);
 
   advance(p);
-  e->while_.cond = parse_expr(p);
+  e->while_.cond = parse_primary(p);
 
   if (expect(p, TOK_DO) < 0) return NULL;
-  e->while_.body = parse_expr(p);
+  e->while_.body = parse_primary(p);
 
   return e;
 }
@@ -114,11 +158,11 @@ static expr_t *parse_for(parser_t *p) {
   e->for_.var = current.str_val;
 
   if (expect(p, TOK_ASSIGN) < 0) return NULL;
-  e->for_.init = parse_expr(p);
+  e->for_.init = parse_primary(p);
   if (expect(p, TOK_TO) < 0) return NULL;
-  e->for_.to = parse_expr(p);
+  e->for_.to = parse_primary(p);
   if (expect(p, TOK_DO) < 0) return NULL;
-  e->for_.body = parse_expr(p);
+  e->for_.body = parse_primary(p);
 
   return e;
 }
@@ -203,7 +247,7 @@ static dec_t *parse_vardec(parser_t *p) {
     return NULL;
   }
 
-  d->var.init = parse_expr(p);
+  d->var.init = parse_primary(p);
   return d;
 }
 
@@ -241,7 +285,7 @@ static dec_t *parse_funcdec(parser_t *p) {
   }
 
   if (expect(p, TOK_EQ) < 0) return NULL;
-  d->func.body = parse_expr(p);
+  d->func.body = parse_primary(p);
   return d;
 }
 
@@ -314,7 +358,7 @@ static expr_t *parse_let(parser_t *p) {
       return NULL;
     }
 
-    expr_t *bodyexpr = parse_expr(p);
+    expr_t *bodyexpr = parse_primary(p);
     e->let.body = exprlist_insert(e->let.body, bodyexpr);
     if (p->current.kind == TOK_SEMICOLON) {
       advance(p);
@@ -331,10 +375,11 @@ static expr_t *parse_assign(parser_t *p) {
   e->assign.var = p->current.str_val;
   if (expect(p, TOK_ID) < 0) { return NULL; }
   if (expect(p, TOK_ASSIGN) < 0) { return NULL; }
-  e->assign.rhs = parse_expr(p);
+  e->assign.rhs = parse_primary(p);
 
   return e;
 }
+
 static expr_t *parse_call(parser_t *p) {
   expr_t *e = make_expr(EXPR_CALL, p->current.line, p->current.col);
   e->call.id = p->current.str_val;
@@ -343,7 +388,7 @@ static expr_t *parse_call(parser_t *p) {
   e->call.arg_list = NULL;
   while (p->current.kind != TOK_RPAREN) {
     if (p->current.kind == TOK_EOF) return NULL;
-    expr_t *arg = parse_expr(p);
+    expr_t *arg = parse_primary(p);
     e->call.arg_list = exprlist_insert(e->call.arg_list, arg);
     if (p->current.kind == TOK_COMMA) advance(p);
   }
@@ -370,7 +415,7 @@ static expr_t *parse_lvalue(parser_t *p) {
       advance(p);
       expr_t *idx = make_expr(EXPR_INDEX, p->current.line, p->current.col);
       idx->index_.array = e;
-      idx->index_.index = parse_expr(p);
+      idx->index_.index = parse_primary(p);
       if (expect(p, TOK_RBRACKET) < 0) return NULL;
       e = idx;
     }
@@ -378,7 +423,22 @@ static expr_t *parse_lvalue(parser_t *p) {
   return e;
 }
 
-expr_t *parse_expr(parser_t *p) {
+static expr_t *parse_expr_bp(parser_t *p, int min_bp) {
+  expr_t *lhs = parse_primary(p);
+
+  while (1) {
+    int bp = get_infix_bp(p->current.kind);
+    if (bp <= min_bp) break;
+
+    token_t op = advance(p);
+    expr_t *rhs = parse_expr_bp(p, bp + 1);
+    lhs = make_binop(get_binop_kind(op.kind), lhs, rhs, op.line, op.col);
+  }
+
+  return lhs;
+}
+
+static expr_t *parse_primary(parser_t *p) {
   switch (p->current.kind) {
     case TOK_INT:    return parse_int(p);
     case TOK_STRING: return parse_string(p);
@@ -395,7 +455,7 @@ expr_t *parse_expr(parser_t *p) {
   }
 }
 
-expr_t *parse(parser_t *parser) {
-
+expr_t *parse_expr(parser_t *p) {
+  return parse_expr_bp(p, 0);
 }
 

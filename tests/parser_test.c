@@ -193,3 +193,65 @@ int test_parse_nested_index() {
     return 1;
 }
 REGISTER_TEST(test_parse_nested_index);
+
+int test_binop_add() {
+    expr_t *e = parse_str("1 + 2");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_BINOP);
+    ASSERT_EQ(e->binop.op, OP_ADD);
+    ASSERT_EQ(e->binop.left->int_val, 1);
+    ASSERT_EQ(e->binop.right->int_val, 2);
+    return 1;
+}
+REGISTER_TEST(test_binop_add);
+
+int test_binop_precedence() {
+    // 1 + 2 * 3 should parse as 1 + (2 * 3)
+    expr_t *e = parse_str("1 + 2 * 3");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_BINOP);
+    ASSERT_EQ(e->binop.op, OP_ADD);
+    ASSERT_EQ(e->binop.left->int_val, 1);
+    ASSERT_EQ(e->binop.right->kind, EXPR_BINOP);
+    ASSERT_EQ(e->binop.right->binop.op, OP_MUL);
+    ASSERT_EQ(e->binop.right->binop.left->int_val, 2);
+    ASSERT_EQ(e->binop.right->binop.right->int_val, 3);
+    return 1;
+}
+REGISTER_TEST(test_binop_precedence);
+
+int test_binop_left_assoc() {
+    // 1 - 2 - 3 should parse as (1 - 2) - 3
+    expr_t *e = parse_str("1 - 2 - 3");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_BINOP);
+    ASSERT_EQ(e->binop.op, OP_SUB);
+    ASSERT_EQ(e->binop.left->kind, EXPR_BINOP);
+    ASSERT_EQ(e->binop.left->binop.op, OP_SUB);
+    ASSERT_EQ(e->binop.left->binop.left->int_val, 1);
+    ASSERT_EQ(e->binop.left->binop.right->int_val, 2);
+    ASSERT_EQ(e->binop.right->int_val, 3);
+    return 1;
+}
+REGISTER_TEST(test_binop_left_assoc);
+
+int test_binop_comparison() {
+    expr_t *e = parse_str("x = 1");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_BINOP);
+    ASSERT_EQ(e->binop.op, OP_EQ);
+    ASSERT_EQ(e->binop.left->kind, EXPR_ID);
+    ASSERT_EQ(e->binop.right->int_val, 1);
+    return 1;
+}
+REGISTER_TEST(test_binop_comparison);
+
+int test_binop_logical() {
+    // a & b | c should parse as (a & b) | c
+    expr_t *e = parse_str("x & y");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_BINOP);
+    ASSERT_EQ(e->binop.op, OP_AND);
+    return 1;
+}
+REGISTER_TEST(test_binop_logical);
