@@ -352,16 +352,29 @@ static expr_t *parse_call(parser_t *p) {
   }
   return e;
 }
-static expr_t *parse_array_index(parser_t *p) {
-  return NULL;
-}
-static expr_t *parse_field_access(parser_t *p) {
-  return NULL;
-}
-static expr_t *parse_id(parser_t *p) {
+
+static expr_t *parse_lvalue(parser_t *p) {
   expr_t *e = make_expr(EXPR_ID, p->current.line, p->current.col);
   e->id = p->current.str_val;
-  if (expect(p, TOK_ID) < 0) return NULL;
+  advance(p);
+
+  while (p->current.kind == TOK_DOT || p->current.kind == TOK_LBRACKET) {
+    if (p->current.kind == TOK_DOT) {
+      advance(p);
+      expr_t *field = make_expr(EXPR_FIELD, p->current.line, p->current.col);
+      field->field_.record = e;
+      field->field_.field  = p->current.str_val;
+      if (expect(p, TOK_ID) < 0) return NULL;
+      e = field;
+    } else {
+      advance(p);
+      expr_t *idx = make_expr(EXPR_INDEX, p->current.line, p->current.col);
+      idx->index_.array = e;
+      idx->index_.index = parse_expr(p);
+      if (expect(p, TOK_RBRACKET) < 0) return NULL;
+      e = idx;
+    }
+  }
   return e;
 }
 
@@ -377,9 +390,7 @@ expr_t *parse_expr(parser_t *p) {
     case TOK_ID:
       if (p->next.kind == TOK_ASSIGN)   return parse_assign(p);
       if (p->next.kind == TOK_LPAREN)   return parse_call(p);
-      if (p->next.kind == TOK_LBRACKET) return parse_array_index(p);
-      if (p->next.kind == TOK_DOT)      return parse_field_access(p);
-      return parse_id(p);
+      return parse_lvalue(p);
     default: return NULL;
   }
 }

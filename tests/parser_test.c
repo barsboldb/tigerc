@@ -16,7 +16,7 @@ int test_parse_int() {
     ASSERT_EQ(e->int_val, 42);
     return 1;
 }
-REGISTER_TEST(test_parse_int)
+REGISTER_TEST(test_parse_int);
 
 int test_parse_string() {
     expr_t *e = parse_str("\"hello\"");
@@ -25,7 +25,7 @@ int test_parse_string() {
     ASSERT_STR_EQ(e->str_val, "hello");
     return 1;
 }
-REGISTER_TEST(test_parse_string)
+REGISTER_TEST(test_parse_string);
 
 int test_parse_nil() {
     expr_t *e = parse_str("nil");
@@ -33,7 +33,7 @@ int test_parse_nil() {
     ASSERT_EQ(e->kind, EXPR_NIL);
     return 1;
 }
-REGISTER_TEST(test_parse_nil)
+REGISTER_TEST(test_parse_nil);
 
 int test_parse_if_no_else() {
     expr_t *e = parse_str("if 1 then 2");
@@ -47,7 +47,7 @@ int test_parse_if_no_else() {
     ASSERT_EQ(e->if_.then->int_val, 2);
     return 1;
 }
-REGISTER_TEST(test_parse_if_no_else)
+REGISTER_TEST(test_parse_if_no_else);
 
 int test_parse_if_with_else() {
     expr_t *e = parse_str("if 1 then 2 else 3");
@@ -57,7 +57,7 @@ int test_parse_if_with_else() {
     ASSERT_EQ(e->if_.else_->int_val, 3);
     return 1;
 }
-REGISTER_TEST(test_parse_if_with_else)
+REGISTER_TEST(test_parse_if_with_else);
 
 int test_parse_while() {
     expr_t *e = parse_str("while 1 do 2");
@@ -69,7 +69,7 @@ int test_parse_while() {
     ASSERT_EQ(e->while_.body->int_val, 2);
     return 1;
 }
-REGISTER_TEST(test_parse_while)
+REGISTER_TEST(test_parse_while);
 
 int test_parse_for() {
     expr_t *e = parse_str("for i := 1 to 10 do 0");
@@ -81,7 +81,7 @@ int test_parse_for() {
     ASSERT_EQ(e->for_.body->int_val, 0);
     return 1;
 }
-REGISTER_TEST(test_parse_for)
+REGISTER_TEST(test_parse_for);
 
 int test_parse_assign() {
     expr_t *e = parse_str("x := 42");
@@ -91,7 +91,7 @@ int test_parse_assign() {
     ASSERT_EQ(e->assign.rhs->int_val, 42);
     return 1;
 }
-REGISTER_TEST(test_parse_assign)
+REGISTER_TEST(test_parse_assign);
 
 int test_parse_call_no_args() {
     expr_t *e = parse_str("foo()");
@@ -101,7 +101,7 @@ int test_parse_call_no_args() {
     ASSERT(e->call.arg_list == NULL);
     return 1;
 }
-REGISTER_TEST(test_parse_call_no_args)
+REGISTER_TEST(test_parse_call_no_args);
 
 int test_parse_call_with_args() {
     expr_t *e = parse_str("add(1, 2)");
@@ -113,7 +113,7 @@ int test_parse_call_with_args() {
     ASSERT_EQ(e->call.arg_list->next->expr->int_val, 2);
     return 1;
 }
-REGISTER_TEST(test_parse_call_with_args)
+REGISTER_TEST(test_parse_call_with_args);
 
 int test_parse_ident() {
     expr_t *e = parse_str("x");
@@ -122,7 +122,7 @@ int test_parse_ident() {
     ASSERT_STR_EQ(e->id, "x");
     return 1;
 }
-REGISTER_TEST(test_parse_ident)
+REGISTER_TEST(test_parse_ident);
 
 int test_parse_let() {
     expr_t *e = parse_str("let var x := 42 in x end");
@@ -135,7 +135,7 @@ int test_parse_let() {
     ASSERT(e->let.body != NULL);
     return 1;
 }
-REGISTER_TEST(test_parse_let)
+REGISTER_TEST(test_parse_let);
 
 int test_parse_let_multiple_decs() {
     expr_t *e = parse_str("let var x := 1 var y := 2 in x end");
@@ -147,4 +147,49 @@ int test_parse_let_multiple_decs() {
     ASSERT_STR_EQ(e->let.dec_list->next->dec->var.id, "y");
     return 1;
 }
-REGISTER_TEST(test_parse_let_multiple_decs)
+REGISTER_TEST(test_parse_let_multiple_decs);
+
+int test_parse_array_index() {
+    expr_t *e = parse_str("a[1]");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_INDEX);
+    ASSERT_EQ(e->index_.array->kind, EXPR_ID);
+    ASSERT_STR_EQ(e->index_.array->id, "a");
+    ASSERT_EQ(e->index_.index->int_val, 1);
+    return 1;
+}
+REGISTER_TEST(test_parse_array_index);
+
+int test_parse_field_access() {
+    expr_t *e = parse_str("r.field");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_FIELD);
+    ASSERT_EQ(e->field_.record->kind, EXPR_ID);
+    ASSERT_STR_EQ(e->field_.record->id, "r");
+    ASSERT_STR_EQ(e->field_.field, "field");
+    return 1;
+}
+REGISTER_TEST(test_parse_field_access);
+
+int test_parse_chained_access() {
+    expr_t *e = parse_str("a[1].field");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_FIELD);
+    ASSERT_EQ(e->field_.record->kind, EXPR_INDEX);
+    ASSERT_STR_EQ(e->field_.record->index_.array->id, "a");
+    ASSERT_STR_EQ(e->field_.field, "field");
+    return 1;
+}
+REGISTER_TEST(test_parse_chained_access);
+
+int test_parse_nested_index() {
+    expr_t *e = parse_str("a[1][2]");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_INDEX);
+    ASSERT_EQ(e->index_.array->kind, EXPR_INDEX);
+    ASSERT_STR_EQ(e->index_.array->index_.array->id, "a");
+    ASSERT_EQ(e->index_.array->index_.index->int_val, 1);
+    ASSERT_EQ(e->index_.index->int_val, 2);
+    return 1;
+}
+REGISTER_TEST(test_parse_nested_index);

@@ -7,6 +7,8 @@ typedef enum {
   EXPR_NIL,
 
   EXPR_ID,
+  EXPR_INDEX,
+  EXPR_FIELD,
   EXPR_BINOP,
   EXPR_ASSIGN,
   EXPR_IF,
@@ -110,6 +112,16 @@ typedef struct expr_t {
     int   int_val;
     char *str_val;
     char *id;
+    struct {
+      struct expr_t *array;
+      struct expr_t *index;
+    } index_;
+
+    struct {
+      struct expr_t *record;
+      char          *field;
+    } field_;
+
     struct {
       struct expr_t *left;
       struct expr_t *right;
