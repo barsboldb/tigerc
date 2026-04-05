@@ -255,3 +255,240 @@ int test_binop_logical() {
     return 1;
 }
 REGISTER_TEST(test_binop_logical);
+
+// --- binop edge cases ---
+
+int test_binop_with_idents() {
+    expr_t *e = parse_str("x + y");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_BINOP);
+    ASSERT_EQ(e->binop.op, OP_ADD);
+    ASSERT_EQ(e->binop.left->kind, EXPR_ID);
+    ASSERT_EQ(e->binop.right->kind, EXPR_ID);
+    return 1;
+}
+REGISTER_TEST(test_binop_with_idents);
+
+int test_binop_call_operand() {
+    expr_t *e = parse_str("foo() + 1");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_BINOP);
+    ASSERT_EQ(e->binop.op, OP_ADD);
+    ASSERT_EQ(e->binop.left->kind, EXPR_CALL);
+    ASSERT_EQ(e->binop.right->int_val, 1);
+    return 1;
+}
+REGISTER_TEST(test_binop_call_operand);
+
+int test_binop_mixed_precedence() {
+    // x + y * z - 1 should parse as (x + (y * z)) - 1
+    expr_t *e = parse_str("x + y * z - 1");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_BINOP);
+    ASSERT_EQ(e->binop.op, OP_SUB);
+    ASSERT_EQ(e->binop.left->kind, EXPR_BINOP);
+    ASSERT_EQ(e->binop.left->binop.op, OP_ADD);
+    ASSERT_EQ(e->binop.right->int_val, 1);
+    return 1;
+}
+REGISTER_TEST(test_binop_mixed_precedence);
+
+// --- if edge cases ---
+
+int test_if_with_binop_cond() {
+    expr_t *e = parse_str("if x > 0 then 1 else 0");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_IF);
+    ASSERT_EQ(e->if_.cond->kind, EXPR_BINOP);
+    ASSERT_EQ(e->if_.cond->binop.op, OP_GT);
+    ASSERT_EQ(e->if_.then->int_val, 1);
+    ASSERT_EQ(e->if_.else_->int_val, 0);
+    return 1;
+}
+REGISTER_TEST(test_if_with_binop_cond);
+
+int test_nested_if() {
+    expr_t *e = parse_str("if 1 then if 2 then 3 else 4");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_IF);
+    ASSERT_EQ(e->if_.then->kind, EXPR_IF);
+    return 1;
+}
+REGISTER_TEST(test_nested_if);
+
+// --- while edge cases ---
+
+int test_while_with_binop_cond() {
+    expr_t *e = parse_str("while x > 0 do x");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_WHILE);
+    ASSERT_EQ(e->while_.cond->kind, EXPR_BINOP);
+    ASSERT_EQ(e->while_.cond->binop.op, OP_GT);
+    ASSERT_EQ(e->while_.body->kind, EXPR_ID);
+    return 1;
+}
+REGISTER_TEST(test_while_with_binop_cond);
+
+// --- for edge cases ---
+
+int test_for_with_expr_bounds() {
+    expr_t *e = parse_str("for i := 0 to n do 0");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_FOR);
+    ASSERT_STR_EQ(e->for_.var, "i");
+    ASSERT_EQ(e->for_.init->int_val, 0);
+    ASSERT_EQ(e->for_.to->kind, EXPR_ID);
+    return 1;
+}
+REGISTER_TEST(test_for_with_expr_bounds);
+
+// --- let edge cases ---
+
+int test_let_var_with_type() {
+    expr_t *e = parse_str("let var x: int := 0 in x end");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_LET);
+    ASSERT_EQ(e->let.dec_list->dec->kind, DEC_VAR);
+    ASSERT_STR_EQ(e->let.dec_list->dec->var.type_name, "int");
+    ASSERT_EQ(e->let.dec_list->dec->var.init->int_val, 0);
+    return 1;
+}
+REGISTER_TEST(test_let_var_with_type);
+
+int test_let_with_binop_body() {
+    expr_t *e = parse_str("let var x := 1 in x + 1 end");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_LET);
+    ASSERT_EQ(e->let.body->expr->kind, EXPR_BINOP);
+    return 1;
+}
+REGISTER_TEST(test_let_with_binop_body);
+
+int test_let_function_dec() {
+    expr_t *e = parse_str("let function add(a: int, b: int): int = a + b in add(1, 2) end");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_LET);
+    ASSERT_EQ(e->let.dec_list->dec->kind, DEC_FUNC);
+    ASSERT_STR_EQ(e->let.dec_list->dec->func.id, "add");
+    ASSERT_STR_EQ(e->let.dec_list->dec->func.type_name, "int");
+    ASSERT(e->let.dec_list->dec->func.args != NULL);
+    return 1;
+}
+REGISTER_TEST(test_let_function_dec);
+
+int test_let_function_no_return_type() {
+    expr_t *e = parse_str("let function greet() = 0 in greet() end");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->let.dec_list->dec->kind, DEC_FUNC);
+    ASSERT(e->let.dec_list->dec->func.type_name == NULL);
+    return 1;
+}
+REGISTER_TEST(test_let_function_no_return_type);
+
+// --- array index edge cases ---
+
+int test_array_index_with_expr() {
+    expr_t *e = parse_str("a[i+1]");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_INDEX);
+    ASSERT_EQ(e->index_.index->kind, EXPR_BINOP);
+    ASSERT_EQ(e->index_.index->binop.op, OP_ADD);
+    return 1;
+}
+REGISTER_TEST(test_array_index_with_expr);
+
+// --- error cases ---
+
+int test_error_if_missing_then() {
+    expr_t *e = parse_str("if 1 2");
+    ASSERT(e == NULL);
+    return 1;
+}
+REGISTER_TEST(test_error_if_missing_then);
+
+int test_error_while_missing_do() {
+    expr_t *e = parse_str("while 1 2");
+    ASSERT(e == NULL);
+    return 1;
+}
+REGISTER_TEST(test_error_while_missing_do);
+
+int test_error_let_missing_end() {
+    expr_t *e = parse_str("let var x := 1 in x");
+    ASSERT(e == NULL);
+    return 1;
+}
+REGISTER_TEST(test_error_let_missing_end);
+
+int test_error_for_missing_do() {
+    expr_t *e = parse_str("for i := 1 to 10 0");
+    ASSERT(e == NULL);
+    return 1;
+}
+REGISTER_TEST(test_error_for_missing_do);
+
+// --- expression as initial value in var declaration ---
+
+int test_vardec_expr_init() {
+    expr_t *e = parse_str("let var x := 1 + 2 in x end");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_LET);
+    ASSERT_EQ(e->let.dec_list->dec->var.init->kind, EXPR_BINOP);
+    ASSERT_EQ(e->let.dec_list->dec->var.init->binop.op, OP_ADD);
+    return 1;
+}
+REGISTER_TEST(test_vardec_expr_init);
+
+int test_vardec_call_init() {
+    expr_t *e = parse_str("let var x := foo() in x end");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->let.dec_list->dec->var.init->kind, EXPR_CALL);
+    ASSERT_STR_EQ(e->let.dec_list->dec->var.init->call.id, "foo");
+    return 1;
+}
+REGISTER_TEST(test_vardec_call_init);
+
+// --- array index with expression ---
+
+int test_array_index_binop() {
+    expr_t *e = parse_str("a[i * 2]");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_INDEX);
+    ASSERT_EQ(e->index_.index->kind, EXPR_BINOP);
+    ASSERT_EQ(e->index_.index->binop.op, OP_MUL);
+    return 1;
+}
+REGISTER_TEST(test_array_index_binop);
+
+int test_array_index_call() {
+    expr_t *e = parse_str("a[foo()]");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_INDEX);
+    ASSERT_EQ(e->index_.index->kind, EXPR_CALL);
+    return 1;
+}
+REGISTER_TEST(test_array_index_call);
+
+// --- function call with expression arguments ---
+
+int test_call_expr_args() {
+    expr_t *e = parse_str("foo(1 + 2, x * y)");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_CALL);
+    ASSERT_EQ(e->call.arg_list->expr->kind, EXPR_BINOP);
+    ASSERT_EQ(e->call.arg_list->expr->binop.op, OP_ADD);
+    ASSERT_EQ(e->call.arg_list->next->expr->kind, EXPR_BINOP);
+    ASSERT_EQ(e->call.arg_list->next->expr->binop.op, OP_MUL);
+    return 1;
+}
+REGISTER_TEST(test_call_expr_args);
+
+int test_call_nested_call_arg() {
+    expr_t *e = parse_str("foo(bar(1))");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_CALL);
+    ASSERT_EQ(e->call.arg_list->expr->kind, EXPR_CALL);
+    ASSERT_STR_EQ(e->call.arg_list->expr->call.id, "bar");
+    return 1;
+}
+REGISTER_TEST(test_call_nested_call_arg);

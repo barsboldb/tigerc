@@ -123,14 +123,14 @@ static expr_t *parse_nil(parser_t *p) {
 static expr_t *parse_if(parser_t *p) {
   expr_t *e = make_expr(EXPR_IF, p->current.line, p->current.col);
   advance(p);
-  e->if_.cond = parse_primary(p);
+  e->if_.cond = parse_expr(p);
 
   if (expect(p, TOK_THEN) < 0) return NULL;
-  e->if_.then = parse_primary(p);
+  e->if_.then = parse_expr(p);
 
   if (p->current.kind == TOK_ELSE) {
     advance(p);
-    e->if_.else_ = parse_primary(p);
+    e->if_.else_ = parse_expr(p);
   } else {
     e->if_.else_ = NULL;
   }
@@ -142,10 +142,10 @@ static expr_t *parse_while(parser_t *p) {
   expr_t *e = make_expr(EXPR_WHILE, p->current.line, p->current.col);
 
   advance(p);
-  e->while_.cond = parse_primary(p);
+  e->while_.cond = parse_expr(p);
 
   if (expect(p, TOK_DO) < 0) return NULL;
-  e->while_.body = parse_primary(p);
+  e->while_.body = parse_expr(p);
 
   return e;
 }
@@ -158,11 +158,11 @@ static expr_t *parse_for(parser_t *p) {
   e->for_.var = current.str_val;
 
   if (expect(p, TOK_ASSIGN) < 0) return NULL;
-  e->for_.init = parse_primary(p);
+  e->for_.init = parse_expr(p);
   if (expect(p, TOK_TO) < 0) return NULL;
-  e->for_.to = parse_primary(p);
+  e->for_.to = parse_expr(p);
   if (expect(p, TOK_DO) < 0) return NULL;
-  e->for_.body = parse_primary(p);
+  e->for_.body = parse_expr(p);
 
   return e;
 }
@@ -247,7 +247,7 @@ static dec_t *parse_vardec(parser_t *p) {
     return NULL;
   }
 
-  d->var.init = parse_primary(p);
+  d->var.init = parse_expr(p);
   return d;
 }
 
@@ -285,7 +285,7 @@ static dec_t *parse_funcdec(parser_t *p) {
   }
 
   if (expect(p, TOK_EQ) < 0) return NULL;
-  d->func.body = parse_primary(p);
+  d->func.body = parse_expr(p);
   return d;
 }
 
@@ -358,7 +358,7 @@ static expr_t *parse_let(parser_t *p) {
       return NULL;
     }
 
-    expr_t *bodyexpr = parse_primary(p);
+    expr_t *bodyexpr = parse_expr(p);
     e->let.body = exprlist_insert(e->let.body, bodyexpr);
     if (p->current.kind == TOK_SEMICOLON) {
       advance(p);
@@ -375,7 +375,7 @@ static expr_t *parse_assign(parser_t *p) {
   e->assign.var = p->current.str_val;
   if (expect(p, TOK_ID) < 0) { return NULL; }
   if (expect(p, TOK_ASSIGN) < 0) { return NULL; }
-  e->assign.rhs = parse_primary(p);
+  e->assign.rhs = parse_expr(p);
 
   return e;
 }
@@ -388,7 +388,7 @@ static expr_t *parse_call(parser_t *p) {
   e->call.arg_list = NULL;
   while (p->current.kind != TOK_RPAREN) {
     if (p->current.kind == TOK_EOF) return NULL;
-    expr_t *arg = parse_primary(p);
+    expr_t *arg = parse_expr(p);
     e->call.arg_list = exprlist_insert(e->call.arg_list, arg);
     if (p->current.kind == TOK_COMMA) advance(p);
   }
@@ -415,7 +415,7 @@ static expr_t *parse_lvalue(parser_t *p) {
       advance(p);
       expr_t *idx = make_expr(EXPR_INDEX, p->current.line, p->current.col);
       idx->index_.array = e;
-      idx->index_.index = parse_primary(p);
+      idx->index_.index = parse_expr(p);
       if (expect(p, TOK_RBRACKET) < 0) return NULL;
       e = idx;
     }
