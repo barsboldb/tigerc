@@ -492,3 +492,62 @@ int test_call_nested_call_arg() {
     return 1;
 }
 REGISTER_TEST(test_call_nested_call_arg);
+
+// --- sequence expressions ---
+
+int test_seq_single() {
+    expr_t *e = parse_str("(42)");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_SEQ);
+    ASSERT(e->seq != NULL);
+    ASSERT_EQ(e->seq->expr->int_val, 42);
+    ASSERT(e->seq->next == NULL);
+    return 1;
+}
+REGISTER_TEST(test_seq_single);
+
+int test_seq_multiple() {
+    expr_t *e = parse_str("(1; 2; 3)");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_SEQ);
+    ASSERT_EQ(e->seq->expr->int_val, 1);
+    ASSERT_EQ(e->seq->next->expr->int_val, 2);
+    ASSERT_EQ(e->seq->next->next->expr->int_val, 3);
+    ASSERT(e->seq->next->next->next == NULL);
+    return 1;
+}
+REGISTER_TEST(test_seq_multiple);
+
+int test_seq_with_exprs() {
+    expr_t *e = parse_str("(x := 1; x + 1)");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_SEQ);
+    ASSERT_EQ(e->seq->expr->kind, EXPR_ASSIGN);
+    ASSERT_EQ(e->seq->next->expr->kind, EXPR_BINOP);
+    return 1;
+}
+REGISTER_TEST(test_seq_with_exprs);
+
+int test_seq_as_while_body() {
+    expr_t *e = parse_str("while x > 0 do (x := x - 1; 0)");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_WHILE);
+    ASSERT_EQ(e->while_.body->kind, EXPR_SEQ);
+    ASSERT_EQ(e->while_.body->seq->expr->kind, EXPR_ASSIGN);
+    return 1;
+}
+REGISTER_TEST(test_seq_as_while_body);
+
+int test_seq_error_trailing_semicolon() {
+    expr_t *e = parse_str("(1; 2;)");
+    ASSERT(e == NULL);
+    return 1;
+}
+REGISTER_TEST(test_seq_error_trailing_semicolon);
+
+int test_seq_error_unterminated() {
+    expr_t *e = parse_str("(1; 2");
+    ASSERT(e == NULL);
+    return 1;
+}
+REGISTER_TEST(test_seq_error_unterminated);

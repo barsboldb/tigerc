@@ -423,6 +423,57 @@ static expr_t *parse_lvalue(parser_t *p) {
   return e;
 }
 
+expr_list_t *exprseq_insert(expr_list_t *head, expr_t *n) {
+  if (!n) return head;
+
+  if (!head) {
+    expr_list_t *list = malloc(sizeof(expr_list_t));
+    list->expr = n;
+    list->next = NULL;
+    return list;
+  }
+
+  expr_list_t *last = head;
+
+  while (last->next) {
+    last = last->next;
+  }
+
+  last->next = malloc(sizeof(expr_list_t));
+  last->next->expr = n;
+  last->next->next = NULL;
+
+  return head;
+}
+
+static expr_t *parse_seq(parser_t *p) {
+  expr_t *e = make_expr(EXPR_SEQ, p->current.line, p->current.col);
+  e->seq = NULL;
+  advance(p);
+
+  while (p->current.kind != TOK_RPAREN) {
+    if (p->current.kind == TOK_EOF) {
+      fprintf(stderr, "error: %d:%d: unterminated expression sequence\n",
+          e->line, e->col);
+      return NULL;
+    }
+
+    expr_t *node = parse_expr(p);
+    e->seq = exprseq_insert(e->seq, node);
+
+    if (p->current.kind == TOK_SEMICOLON) {
+      advance(p);
+      if (p->current.kind == TOK_RPAREN) {
+        fprintf(stderr, "error: %d:%d: trailing semicolon in sequence\n",
+            e->line, e->col);
+        return NULL;
+      }
+    }
+  }
+
+  return e;
+}
+
 static expr_t *parse_expr_bp(parser_t *p, int min_bp) {
   expr_t *lhs = parse_primary(p);
 
@@ -447,6 +498,7 @@ static expr_t *parse_primary(parser_t *p) {
     case TOK_WHILE:  return parse_while(p);
     case TOK_FOR:    return parse_for(p);
     case TOK_LET:    return parse_let(p);
+    case TOK_LPAREN: return parse_seq(p);
     case TOK_ID:
       if (p->next.kind == TOK_ASSIGN)   return parse_assign(p);
       if (p->next.kind == TOK_LPAREN)   return parse_call(p);
