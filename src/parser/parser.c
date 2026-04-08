@@ -471,6 +471,7 @@ static expr_t *parse_seq(parser_t *p) {
     }
   }
 
+  if (expect(p, TOK_RPAREN) < 0) return NULL;
   return e;
 }
 
@@ -487,6 +488,9 @@ static expr_t *parse_expr_bp(parser_t *p, int min_bp) {
   }
 
   return lhs;
+}
+
+static expr_t *parse_record(parser_t *p) {
 }
 
 static expr_t *parse_primary(parser_t *p) {

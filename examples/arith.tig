@@ -1,0 +1,6 @@
+let
+  var x := 10
+  var y := 3
+in
+  (x + y) * (x - y) / 2
+end

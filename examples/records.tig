@@ -1,0 +1,8 @@
+let
+  type point = { x : int, y : int }
+
+  function distance(p : point) : int =
+    p.x * p.x + p.y * p.y
+in
+  distance(point { x = 3, y = 4 })
+end
