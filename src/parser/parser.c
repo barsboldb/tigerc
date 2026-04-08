@@ -224,6 +224,26 @@ static expr_list_t *exprlist_insert(expr_list_t *list, expr_t *e) {
   return list;
 }
 
+static field_list_t *fieldlist_insert(field_list_t *list, char *name, expr_t *val) {
+  if (!list) {
+    field_list_t *head = malloc(sizeof(field_list_t));
+    head->name = name;
+    head->val  = val;
+    return head;
+  }
+  
+  field_list_t *last = list;
+  while (last->next) {
+    last = last->next;
+  }
+
+  last->next = malloc(sizeof(field_list_t));
+  last->next->name = name;
+  last->next->val  = val;
+  last->next->next = NULL;
+  return list;
+}
+
 static dec_t *parse_vardec(parser_t *p) {
   if (expect(p, TOK_VAR) < 0) return NULL;
   token_t c = p->current;
@@ -260,7 +280,6 @@ static dec_t *parse_funcdec(parser_t *p) {
   d->func.id = c.str_val;
 
   if (expect(p, TOK_LPAREN) < 0) return NULL;
-  param_list_t *plist = NULL;
   while (p->current.kind != TOK_RPAREN) {
     if (p->current.kind == TOK_EOF) return NULL;
 
@@ -301,6 +320,21 @@ static dec_t *parse_typedec(parser_t *p) {
 
   if (p->current.kind == TOK_LBRACE) {
     ty->kind = TY_RECORD;
+    advance(p);
+    while (p->current.kind != TOK_RBRACE) {
+      param_t *param = malloc(sizeof(param_t));
+      param->name = p->current.str_val;
+      if (expect(p, TOK_ID) < 0) return NULL;
+      if (expect(p, TOK_COLON) < 0) return NULL;
+      param->type_name = p->current.str_val;
+      if (expect(p, TOK_ID) < 0) return NULL;
+      ty->fields = paramlist_insert(ty->fields, param);
+      if (p->current.kind == TOK_COMMA) {
+        advance(p);
+      }
+    }
+
+    if (expect(p, TOK_RBRACE) < 0) return NULL;
   } else if (p->current.kind == TOK_ARRAY) {
     advance(p);
     if (expect(p, TOK_OF) < 0) {
@@ -491,6 +525,28 @@ static expr_t *parse_expr_bp(parser_t *p, int min_bp) {
 }
 
 static expr_t *parse_record(parser_t *p) {
+  expr_t *r = make_expr(EXPR_RECORD, p->current.line, p->current.col);
+  r->record.type_name = p->current.str_val;
+  advance(p);
+  if (expect(p, TOK_LBRACE) < 0) return NULL;
+
+  field_list_t *fields = NULL;
+
+  while (p->current.kind != TOK_RBRACE) {
+    char *name = p->current.str_val;
+    if (expect(p, TOK_ID) < 0) return NULL;
+    if (expect(p, TOK_EQ) < 0) return NULL;
+    expr_t *val = parse_expr(p);
+    
+    fields = fieldlist_insert(fields, name, val);
+    if (p->current.kind == TOK_COMMA) advance(p);
+  }
+
+  r->record.fields = fields;
+
+  if (expect(p, TOK_RBRACE) < 0) return NULL;
+
+  return r;
 }
 
 static expr_t *parse_primary(parser_t *p) {
@@ -506,6 +562,7 @@ static expr_t *parse_primary(parser_t *p) {
     case TOK_ID:
       if (p->next.kind == TOK_ASSIGN)   return parse_assign(p);
       if (p->next.kind == TOK_LPAREN)   return parse_call(p);
+      if (p->next.kind == TOK_LBRACE)   return parse_record(p);
       return parse_lvalue(p);
     default: return NULL;
   }
