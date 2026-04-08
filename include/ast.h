@@ -82,10 +82,10 @@ typedef struct dec_t {
     } var;
 
     struct {
-      char              *id;
-      char              *type_name;
-      param_list_t      *args; 
-      struct expr_t     *body;
+      char          *id;
+      char          *type_name;
+      param_list_t  *args; 
+      struct expr_t *body;
     } func;
 
     struct {
