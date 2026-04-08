@@ -551,3 +551,68 @@ int test_seq_error_unterminated() {
     return 1;
 }
 REGISTER_TEST(test_seq_error_unterminated);
+
+// --- record literals ---
+
+int test_record_empty() {
+    expr_t *e = parse_str("point {}");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_RECORD);
+    ASSERT_STR_EQ(e->record.type_name, "point");
+    ASSERT(e->record.fields == NULL);
+    return 1;
+}
+REGISTER_TEST(test_record_empty);
+
+int test_record_single_field() {
+    expr_t *e = parse_str("point { x = 1 }");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_RECORD);
+    ASSERT_STR_EQ(e->record.type_name, "point");
+    ASSERT(e->record.fields != NULL);
+    ASSERT_STR_EQ(e->record.fields->name, "x");
+    ASSERT_EQ(e->record.fields->val->int_val, 1);
+    ASSERT(e->record.fields->next == NULL);
+    return 1;
+}
+REGISTER_TEST(test_record_single_field);
+
+int test_record_multiple_fields() {
+    expr_t *e = parse_str("point { x = 3, y = 4 }");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_RECORD);
+    ASSERT_STR_EQ(e->record.fields->name, "x");
+    ASSERT_EQ(e->record.fields->val->int_val, 3);
+    ASSERT(e->record.fields->next != NULL);
+    ASSERT_STR_EQ(e->record.fields->next->name, "y");
+    ASSERT_EQ(e->record.fields->next->val->int_val, 4);
+    return 1;
+}
+REGISTER_TEST(test_record_multiple_fields);
+
+int test_record_field_expr() {
+    expr_t *e = parse_str("point { x = a + 1 }");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_RECORD);
+    ASSERT_EQ(e->record.fields->val->kind, EXPR_BINOP);
+    ASSERT_EQ(e->record.fields->val->binop.op, OP_ADD);
+    return 1;
+}
+REGISTER_TEST(test_record_field_expr);
+
+int test_record_in_let() {
+    expr_t *e = parse_str("let type point = { x : int, y : int } in point { x = 1, y = 2 } end");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_LET);
+    dec_t *d = e->let.dec_list->dec;
+    ASSERT_EQ(d->kind, DEC_TYPE);
+    ASSERT_STR_EQ(d->type.name, "point");
+    ASSERT_EQ(d->type.ty->kind, TY_RECORD);
+    ASSERT_STR_EQ(d->type.ty->fields->param->name, "x");
+    ASSERT_STR_EQ(d->type.ty->fields->next->param->name, "y");
+    expr_t *body = e->let.body->expr;
+    ASSERT_EQ(body->kind, EXPR_RECORD);
+    ASSERT_STR_EQ(body->record.type_name, "point");
+    return 1;
+}
+REGISTER_TEST(test_record_in_let);
