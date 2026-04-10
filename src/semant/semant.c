@@ -160,6 +160,10 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
     }
     case EXPR_CALL: {
       env_entry_t *f = symtab_lookup(venv, e->call.id);
+      if (!f) {
+        fprintf(stderr, "error: undefined function '%s'\n", e->call.id);
+        return NULL;
+      }
       if (f->kind == ENV_VAR) {
         fprintf(stderr, "error: cannot invoke variable call\n");
         return NULL;
