@@ -272,3 +272,289 @@ int test_trans_dec_func_inserted_in_venv() {
   return 1;
 }
 REGISTER_TEST(test_trans_dec_func_inserted_in_venv);
+
+/* --- helpers for trans_expr tests --- */
+
+static expr_t *make_int_expr(int val) {
+  expr_t *e   = malloc(sizeof(expr_t));
+  e->kind     = EXPR_INT;
+  e->int_val  = val;
+  e->line = e->col = 0;
+  return e;
+}
+
+static expr_t *make_string_expr(char *val) {
+  expr_t *e   = malloc(sizeof(expr_t));
+  e->kind     = EXPR_STRING;
+  e->str_val  = val;
+  e->line = e->col = 0;
+  return e;
+}
+
+static expr_t *make_nil_expr() {
+  expr_t *e = malloc(sizeof(expr_t));
+  e->kind   = EXPR_NIL;
+  e->line = e->col = 0;
+  return e;
+}
+
+static expr_t *make_binop_expr(binop_t op, expr_t *left, expr_t *right) {
+  expr_t *e       = malloc(sizeof(expr_t));
+  e->kind         = EXPR_BINOP;
+  e->binop.op     = op;
+  e->binop.left   = left;
+  e->binop.right  = right;
+  e->line = e->col = 0;
+  return e;
+}
+
+static expr_t *make_if_expr(expr_t *cond, expr_t *then, expr_t *else_) {
+  expr_t *e     = malloc(sizeof(expr_t));
+  e->kind       = EXPR_IF;
+  e->if_.cond   = cond;
+  e->if_.then   = then;
+  e->if_.else_  = else_;
+  e->line = e->col = 0;
+  return e;
+}
+
+static expr_t *make_while_expr(expr_t *cond, expr_t *body) {
+  expr_t *e      = malloc(sizeof(expr_t));
+  e->kind        = EXPR_WHILE;
+  e->while_.cond = cond;
+  e->while_.body = body;
+  e->line = e->col = 0;
+  return e;
+}
+
+static expr_t *make_for_expr(expr_t *init, expr_t *to, expr_t *body) {
+  expr_t *e    = malloc(sizeof(expr_t));
+  e->kind      = EXPR_FOR;
+  e->for_.var  = "i";
+  e->for_.init = init;
+  e->for_.to   = to;
+  e->for_.body = body;
+  e->line = e->col = 0;
+  return e;
+}
+
+static expr_list_t *make_expr_list(expr_t *e, expr_list_t *next) {
+  expr_list_t *l = malloc(sizeof(expr_list_t));
+  l->expr = e;
+  l->next = next;
+  return l;
+}
+
+static expr_t *make_seq_expr(expr_list_t *seq) {
+  expr_t *e = malloc(sizeof(expr_t));
+  e->kind   = EXPR_SEQ;
+  e->seq    = seq;
+  e->line = e->col = 0;
+  return e;
+}
+
+static expr_t *make_call_expr(char *id, expr_list_t *args) {
+  expr_t *e        = malloc(sizeof(expr_t));
+  e->kind          = EXPR_CALL;
+  e->call.id       = id;
+  e->call.arg_list = args;
+  e->line = e->col = 0;
+  return e;
+}
+
+static expr_t *make_array_expr(char *type_name, expr_t *size, expr_t *init) {
+  expr_t *e          = malloc(sizeof(expr_t));
+  e->kind            = EXPR_ARRAY;
+  e->array.type_name = type_name;
+  e->array.size      = size;
+  e->array.init      = init;
+  e->line = e->col   = 0;
+  return e;
+}
+
+static field_list_t *make_field_list(char *name, expr_t *val, field_list_t *next) {
+  field_list_t *f = malloc(sizeof(field_list_t));
+  f->name = name;
+  f->val  = val;
+  f->next = next;
+  return f;
+}
+
+static expr_t *make_record_expr(char *type_name, field_list_t *fields) {
+  expr_t *e            = malloc(sizeof(expr_t));
+  e->kind              = EXPR_RECORD;
+  e->record.type_name  = type_name;
+  e->record.fields     = fields;
+  e->line = e->col     = 0;
+  return e;
+}
+
+/* --- trans_expr tests --- */
+
+int test_trans_expr_int() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  semty_t *result = trans_expr(venv, tenv, make_int_expr(42));
+  ASSERT(result != NULL);
+  ASSERT_EQ(result->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_expr_int);
+
+int test_trans_expr_string() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  semty_t *result = trans_expr(venv, tenv, make_string_expr("hello"));
+  ASSERT(result != NULL);
+  ASSERT_EQ(result->kind, SEMTY_STRING);
+  return 1;
+}
+REGISTER_TEST(test_trans_expr_string);
+
+int test_trans_expr_nil() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  semty_t *result = trans_expr(venv, tenv, make_nil_expr());
+  ASSERT(result != NULL);
+  ASSERT_EQ(result->kind, SEMTY_NIL);
+  return 1;
+}
+REGISTER_TEST(test_trans_expr_nil);
+
+int test_trans_expr_binop_add() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  expr_t *e = make_binop_expr(OP_ADD, make_int_expr(1), make_int_expr(2));
+  semty_t *result = trans_expr(venv, tenv, e);
+  ASSERT_EQ(result->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_expr_binop_add);
+
+int test_trans_expr_binop_eq_ints() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  expr_t *e = make_binop_expr(OP_EQ, make_int_expr(1), make_int_expr(1));
+  semty_t *result = trans_expr(venv, tenv, e);
+  ASSERT_EQ(result->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_expr_binop_eq_ints);
+
+int test_trans_expr_binop_eq_strings() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  expr_t *e = make_binop_expr(OP_EQ, make_string_expr("a"), make_string_expr("b"));
+  semty_t *result = trans_expr(venv, tenv, e);
+  ASSERT_EQ(result->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_expr_binop_eq_strings);
+
+int test_trans_expr_if_no_else() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  expr_t *e = make_if_expr(make_int_expr(1), make_int_expr(2), NULL);
+  semty_t *result = trans_expr(venv, tenv, e);
+  ASSERT_EQ(result->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_expr_if_no_else);
+
+int test_trans_expr_if_with_else() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  expr_t *e = make_if_expr(make_int_expr(1), make_int_expr(2), make_int_expr(3));
+  semty_t *result = trans_expr(venv, tenv, e);
+  ASSERT_EQ(result->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_expr_if_with_else);
+
+int test_trans_expr_while() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  expr_t *e = make_while_expr(make_int_expr(1), make_int_expr(0));
+  semty_t *result = trans_expr(venv, tenv, e);
+  ASSERT_EQ(result->kind, SEMTY_VOID);
+  return 1;
+}
+REGISTER_TEST(test_trans_expr_while);
+
+int test_trans_expr_for() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  expr_t *e = make_for_expr(make_int_expr(0), make_int_expr(10), make_int_expr(0));
+  semty_t *result = trans_expr(venv, tenv, e);
+  ASSERT_EQ(result->kind, SEMTY_VOID);
+  return 1;
+}
+REGISTER_TEST(test_trans_expr_for);
+
+int test_trans_expr_seq() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  expr_list_t *seq = make_expr_list(make_int_expr(1),
+                     make_expr_list(make_string_expr("x"), NULL));
+  expr_t *e = make_seq_expr(seq);
+  semty_t *result = trans_expr(venv, tenv, e);
+  ASSERT_EQ(result->kind, SEMTY_STRING);
+  return 1;
+}
+REGISTER_TEST(test_trans_expr_seq);
+
+int test_trans_expr_call_no_args() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  dec_t *d = make_func_dec("f", NULL, "int");
+  trans_dec(venv, tenv, d);
+  expr_t *e = make_call_expr("f", NULL);
+  semty_t *result = trans_expr(venv, tenv, e);
+  ASSERT(result != NULL);
+  ASSERT_EQ(result->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_expr_call_no_args);
+
+int test_trans_expr_call_with_args() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  param_list_t *params = make_param("x", "int", NULL);
+  dec_t *d = make_func_dec("f", params, "string");
+  trans_dec(venv, tenv, d);
+  expr_list_t *args = make_expr_list(make_int_expr(1), NULL);
+  expr_t *e = make_call_expr("f", args);
+  semty_t *result = trans_expr(venv, tenv, e);
+  ASSERT(result != NULL);
+  ASSERT_EQ(result->kind, SEMTY_STRING);
+  return 1;
+}
+REGISTER_TEST(test_trans_expr_call_with_args);
+
+int test_trans_expr_array() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  trans_dec(venv, tenv, make_type_dec("intarr", make_array_ty("int")));
+  expr_t *e = make_array_expr("intarr", make_int_expr(10), make_int_expr(0));
+  semty_t *result = trans_expr(venv, tenv, e);
+  ASSERT(result != NULL);
+  ASSERT_EQ(result->kind, SEMTY_ARRAY);
+  ASSERT_EQ(result->array->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_expr_array);
+
+int test_trans_expr_record() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  param_list_t *fields = make_param("x", "int", make_param("s", "string", NULL));
+  trans_dec(venv, tenv, make_type_dec("point", make_record_ty(fields)));
+  field_list_t *flist = make_field_list("s", make_string_expr("hi"),
+                        make_field_list("x", make_int_expr(1), NULL));
+  expr_t *e = make_record_expr("point", flist);
+  semty_t *result = trans_expr(venv, tenv, e);
+  ASSERT(result != NULL);
+  ASSERT_EQ(result->kind, SEMTY_RECORD);
+  return 1;
+}
+REGISTER_TEST(test_trans_expr_record);
