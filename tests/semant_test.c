@@ -144,3 +144,131 @@ int test_trans_ty_record_multiple_fields() {
   return 1;
 }
 REGISTER_TEST(test_trans_ty_record_multiple_fields);
+
+/* --- helpers for trans_dec tests --- */
+
+static symtab_t *base_venv() {
+  symtab_t *venv = symtab_new(16);
+  symtab_enter_scope(venv);
+  return venv;
+}
+
+static dec_t *make_type_dec(char *name, ty_t *ty) {
+  dec_t *d    = malloc(sizeof(dec_t));
+  d->kind     = DEC_TYPE;
+  d->type.name = name;
+  d->type.ty   = ty;
+  return d;
+}
+
+static dec_t *make_func_dec(char *id, param_list_t *args, char *ret_type) {
+  dec_t *d       = malloc(sizeof(dec_t));
+  d->kind        = DEC_FUNC;
+  d->func.id     = id;
+  d->func.args   = args;
+  d->func.type_name = ret_type;
+  d->func.body   = NULL;
+  return d;
+}
+
+/* --- trans_dec: DEC_TYPE --- */
+
+int test_trans_dec_type_alias() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  dec_t *d = make_type_dec("myint", make_name_ty("int"));
+  trans_dec(venv, tenv, d);
+  semty_t *result = symtab_lookup(tenv, "myint");
+  ASSERT(result != NULL);
+  ASSERT_EQ(result->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_dec_type_alias);
+
+int test_trans_dec_type_array() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  dec_t *d = make_type_dec("intarr", make_array_ty("int"));
+  trans_dec(venv, tenv, d);
+  semty_t *result = symtab_lookup(tenv, "intarr");
+  ASSERT(result != NULL);
+  ASSERT_EQ(result->kind, SEMTY_ARRAY);
+  ASSERT_EQ(result->array->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_dec_type_array);
+
+int test_trans_dec_type_record() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  param_list_t *fields = make_param("x", "int", make_param("s", "string", NULL));
+  dec_t *d = make_type_dec("point", make_record_ty(fields));
+  trans_dec(venv, tenv, d);
+  semty_t *result = symtab_lookup(tenv, "point");
+  ASSERT(result != NULL);
+  ASSERT_EQ(result->kind, SEMTY_RECORD);
+  ASSERT_STR_EQ(result->record->name, "x");
+  ASSERT_EQ(result->record->type->kind, SEMTY_INT);
+  ASSERT_STR_EQ(result->record->next->name, "s");
+  ASSERT_EQ(result->record->next->type->kind, SEMTY_STRING);
+  return 1;
+}
+REGISTER_TEST(test_trans_dec_type_record);
+
+/* --- trans_dec: DEC_FUNC --- */
+
+int test_trans_dec_func_no_params_no_ret() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  dec_t *d = make_func_dec("f", NULL, NULL);
+  trans_dec(venv, tenv, d);
+  env_entry_t *entry = symtab_lookup(venv, "f");
+  ASSERT(entry != NULL);
+  ASSERT_EQ(entry->kind, ENV_FUNC);
+  ASSERT_EQ(entry->func.params, NULL);
+  ASSERT_EQ(entry->func.ret, NULL);
+  return 1;
+}
+REGISTER_TEST(test_trans_dec_func_no_params_no_ret);
+
+int test_trans_dec_func_with_return_type() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  dec_t *d = make_func_dec("f", NULL, "int");
+  trans_dec(venv, tenv, d);
+  env_entry_t *entry = symtab_lookup(venv, "f");
+  ASSERT(entry != NULL);
+  ASSERT_EQ(entry->func.ret->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_dec_func_with_return_type);
+
+int test_trans_dec_func_with_params() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  param_list_t *args = make_param("x", "int", make_param("s", "string", NULL));
+  dec_t *d = make_func_dec("f", args, "int");
+  trans_dec(venv, tenv, d);
+  env_entry_t *entry = symtab_lookup(venv, "f");
+  ASSERT(entry != NULL);
+  param_ty_t *p = entry->func.params;
+  ASSERT(p != NULL);
+  ASSERT_EQ(p->type->kind, SEMTY_INT);
+  p = p->next;
+  ASSERT(p != NULL);
+  ASSERT_EQ(p->type->kind, SEMTY_STRING);
+  ASSERT_EQ(p->next, NULL);
+  return 1;
+}
+REGISTER_TEST(test_trans_dec_func_with_params);
+
+int test_trans_dec_func_inserted_in_venv() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  dec_t *d = make_func_dec("myfunc", NULL, NULL);
+  trans_dec(venv, tenv, d);
+  ASSERT(symtab_lookup(venv, "myfunc") != NULL);
+  ASSERT_EQ(symtab_lookup(venv, "unknown"), NULL);
+  return 1;
+}
+REGISTER_TEST(test_trans_dec_func_inserted_in_venv);
