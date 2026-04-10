@@ -559,6 +559,13 @@ static expr_t *parse_primary(parser_t *p) {
     case TOK_FOR:    return parse_for(p);
     case TOK_LET:    return parse_let(p);
     case TOK_LPAREN: return parse_seq(p);
+    case TOK_MINUS: {
+      token_t tok = advance(p);
+      expr_t *operand = parse_primary(p);
+      expr_t *zero = make_expr(EXPR_INT, tok.line, tok.col);
+      zero->int_val = 0;
+      return make_binop(OP_SUB, zero, operand, tok.line, tok.col);
+    }
     case TOK_ID:
       if (p->next.kind == TOK_ASSIGN)   return parse_assign(p);
       if (p->next.kind == TOK_LPAREN)   return parse_call(p);
