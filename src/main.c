@@ -7,24 +7,6 @@
 #include "symtab.h"
 #include "types.h"
 
-static symtab_t *base_tenv() {
-  symtab_t *tenv = symtab_new(64);
-  semty_t *int_ty    = malloc(sizeof(semty_t));
-  semty_t *string_ty = malloc(sizeof(semty_t));
-  int_ty->kind    = SEMTY_INT;
-  string_ty->kind = SEMTY_STRING;
-  symtab_enter_scope(tenv);
-  symtab_insert(tenv, "int",    int_ty);
-  symtab_insert(tenv, "string", string_ty);
-  return tenv;
-}
-
-static symtab_t *base_venv() {
-  symtab_t *venv = symtab_new(64);
-  symtab_enter_scope(venv);
-  return venv;
-}
-
 int main(int argc, char *argv[]) {
   if (argc < 2) {
     fprintf(stderr, "usage: tigerc <file>\n");
@@ -54,8 +36,8 @@ int main(int argc, char *argv[]) {
   print_expr(ast, 0);
 
   printf("\n=== Semantic Analysis ===\n");
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  symtab_t *tenv = semant_base_tenv();
+  symtab_t *venv = semant_base_venv(tenv);
   semty_t  *ty   = trans_expr(venv, tenv, ast);
 
   if (ty) {

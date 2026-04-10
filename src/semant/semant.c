@@ -3,6 +3,56 @@
 #include <string.h>
 #include "semant.h"
 
+static env_entry_t *make_func_entry(param_ty_t *params, semty_t *ret) {
+  env_entry_t *e = malloc(sizeof(env_entry_t));
+  e->kind        = ENV_FUNC;
+  e->func.params = params;
+  e->func.ret    = ret;
+  return e;
+}
+
+static param_ty_t *make_param_ty(semty_t *type, param_ty_t *next) {
+  param_ty_t *p = malloc(sizeof(param_ty_t));
+  p->type = type;
+  p->next = next;
+  return p;
+}
+
+symtab_t *semant_base_tenv() {
+  symtab_t *tenv = symtab_new(64);
+
+  semty_t *int_ty    = malloc(sizeof(semty_t));
+  semty_t *string_ty = malloc(sizeof(semty_t));
+  int_ty->kind    = SEMTY_INT;
+  string_ty->kind = SEMTY_STRING;
+  symtab_enter_scope(tenv);
+  symtab_insert(tenv, "int",    int_ty);
+  symtab_insert(tenv, "string", string_ty);
+
+  return tenv;
+}
+symtab_t *semant_base_venv(symtab_t *tenv) {
+  symtab_t *venv = symtab_new(64);
+  semty_t *ty_int    = symtab_lookup(tenv, "int");
+  semty_t *ty_string = symtab_lookup(tenv, "string");
+  semty_t *ty_void   = malloc(sizeof(semty_t));
+  ty_void->kind = SEMTY_VOID;
+
+  symtab_enter_scope(venv);
+  symtab_insert(venv, "print", make_func_entry(make_param_ty(ty_string, NULL), ty_void));
+  symtab_insert(venv, "flush", make_func_entry(NULL, ty_void));
+  symtab_insert(venv, "getchar", make_func_entry(NULL, ty_string));
+  symtab_insert(venv, "ord", make_func_entry(make_param_ty(ty_string, NULL), ty_int));
+  symtab_insert(venv, "chr", make_func_entry(make_param_ty(ty_int, NULL), ty_string));
+  symtab_insert(venv, "size", make_func_entry(make_param_ty(ty_string, NULL), ty_int));
+  symtab_insert(venv, "not", make_func_entry(make_param_ty(ty_int, NULL), ty_int));
+  symtab_insert(venv, "exit", make_func_entry(make_param_ty(ty_int, NULL), ty_void));
+  symtab_insert(venv, "concat", make_func_entry(make_param_ty(ty_string, make_param_ty(ty_string, NULL)), ty_string));
+  symtab_insert(venv, "substring", make_func_entry(make_param_ty(ty_string, make_param_ty(ty_int, make_param_ty(ty_int, NULL))), ty_string));
+
+  return venv;
+}
+
 semty_t *trans_ty(symtab_t *tenv, ty_t *ty) {
   switch (ty->kind) {
     case TY_NAME:

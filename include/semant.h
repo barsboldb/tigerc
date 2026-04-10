@@ -26,6 +26,9 @@ typedef struct {
   };
 } env_entry_t;
 
+symtab_t *semant_base_venv(symtab_t *tenv);
+symtab_t *semant_base_tenv();
+
 semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e);
 semty_t *trans_var(symtab_t *venv, symtab_t *tenv, expr_t *e);
 semty_t *trans_ty(symtab_t *tenv, ty_t *ty);

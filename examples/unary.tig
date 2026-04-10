@@ -1,0 +1,5 @@
+let
+  var n := 1
+in
+  print(chr(-n - 1))
+end
