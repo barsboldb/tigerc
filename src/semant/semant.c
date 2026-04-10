@@ -35,8 +35,55 @@ semty_t *trans_ty(symtab_t *tenv, ty_t *ty) {
 }
 
 semty_t *trans_var(symtab_t *venv, symtab_t *tenv, expr_t *e) {
-  (void)venv; (void)tenv; (void)e;
-  return NULL;
+  switch (e->kind) {
+    case EXPR_ID: {
+      env_entry_t *entry = symtab_lookup(venv, e->id);
+      if (!entry) {
+        fprintf(stderr, "error: undefined variable\n");
+        return NULL;
+      }
+      if (entry->kind != ENV_VAR) {
+        fprintf(stderr, "error: cannot use function as a variable\n");
+        return NULL;
+      }
+      return entry->var;
+    }
+    case EXPR_FIELD: {
+      semty_t *record_ty = trans_var(venv, tenv, e->field_.record);
+      if (record_ty->kind != SEMTY_RECORD) {
+        fprintf(stderr, "error: field access is only allowed with record type\n");
+      }
+      field_ty_t *field_ty = record_ty->record;
+
+      while (field_ty) {
+        if (strcmp(field_ty->name, e->field_.field) == 0) break;
+        field_ty = field_ty->next;
+      }
+
+      if (!field_ty) {
+        fprintf(stderr, "error: unknown field '%s'\n", e->field_.field);
+        return NULL;
+      }
+
+      return field_ty->type;
+    }
+    case EXPR_INDEX: {
+      semty_t *array_ty = trans_var(venv, tenv, e->index_.array);
+      if (array_ty->kind != SEMTY_ARRAY) {
+        fprintf(stderr, "error: cannot access index of non-array variable\n");
+        return NULL;
+      }
+      semty_t *index_ty = trans_expr(venv, tenv, e->index_.index);
+      if (!array_ty) {
+      }
+      if (index_ty->kind != SEMTY_INT) {
+        fprintf(stderr, "error: cannot access non-integer array index\n");
+        return NULL;
+      }
+      return array_ty->array;
+    }
+    default: return NULL;
+  }
 }
 
 semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
@@ -61,9 +108,11 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
       semty_t *lhs = trans_expr(venv, tenv, e->assign.rhs);
       if (rhs->kind != ENV_VAR) {
         fprintf(stderr, "error: cannot assign to function expr\n");
+        return NULL;
       }
       if (rhs->var->kind != lhs->kind) {
         fprintf(stderr, "error: type mismatch in assign '%s'\n", e->assign.var);
+        return NULL;
       }
       s->kind = SEMTY_VOID;
       return s;
@@ -72,6 +121,7 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
       semty_t *cond = trans_expr(venv, tenv, e->if_.cond);
       if (cond->kind != SEMTY_INT) {
         fprintf(stderr, "error: if expr condition must be int\n");
+        return NULL;
       }
       semty_t *then = trans_expr(venv, tenv, e->if_.then);
       if (!e->if_.else_) {
@@ -80,6 +130,7 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
       semty_t *else_ = trans_expr(venv, tenv, e->if_.else_);
       if (then->kind != else_->kind) {
         fprintf(stderr, "error: if expr type is ambigious\n");
+        return NULL;
       }
       return then;
     }
@@ -87,6 +138,7 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
       semty_t *cond = trans_expr(venv, tenv, e->while_.cond);
       if (cond->kind != SEMTY_INT) {
         fprintf(stderr, "error: while expr condition must be int\n");
+        return NULL;
       }
       trans_expr(venv, tenv, e->while_.body);
       s->kind = SEMTY_VOID;
@@ -97,9 +149,11 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
       semty_t *to   = trans_expr(venv, tenv, e->for_.to);
       if (init->kind != to->kind) {
         fprintf(stderr, "error: for expr type mismatch\n");
+        return NULL;
       }
       if (init->kind != SEMTY_INT) {
         fprintf(stderr, "error: for expr iterator type should be int\n");
+        return NULL;
       }
       s->kind = SEMTY_VOID;
       return s;
@@ -108,6 +162,7 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
       env_entry_t *f = symtab_lookup(venv, e->call.id);
       if (f->kind == ENV_VAR) {
         fprintf(stderr, "error: cannot invoke variable call\n");
+        return NULL;
       }
 
       param_ty_t *p = f->func.params;
@@ -115,6 +170,7 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
       while (p) {
         if (p->type->kind != trans_expr(venv, tenv, a->expr)->kind) {
           fprintf(stderr, "error: param type mismatch\n");
+          return NULL;
         }
         p = p->next;
         a = a->next;
@@ -165,9 +221,11 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
         case OP_OR:
           if (l->kind != SEMTY_INT) {
             fprintf(stderr, "error: operands should be ints\n");
+            return NULL;
           }
           if (r->kind != SEMTY_INT) {
             fprintf(stderr, "error: operands should be ints\n");
+            return NULL;
           }
           res->kind = SEMTY_INT;
           return res;
@@ -175,6 +233,7 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
         case OP_NEQ:
           if (l->kind != r->kind) {
             fprintf(stderr, "error: operands should be same type\n");
+            return NULL;
           }
           res->kind = SEMTY_INT;
           return res;

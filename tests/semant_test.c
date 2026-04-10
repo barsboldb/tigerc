@@ -558,3 +558,196 @@ int test_trans_expr_record() {
   return 1;
 }
 REGISTER_TEST(test_trans_expr_record);
+
+/* --- helpers for trans_var tests --- */
+
+static expr_t *make_id_expr(char *id) {
+  expr_t *e = malloc(sizeof(expr_t));
+  e->kind   = EXPR_ID;
+  e->id     = id;
+  e->line = e->col = 0;
+  return e;
+}
+
+static expr_t *make_field_expr(expr_t *record, char *field) {
+  expr_t *e         = malloc(sizeof(expr_t));
+  e->kind           = EXPR_FIELD;
+  e->field_.record  = record;
+  e->field_.field   = field;
+  e->line = e->col  = 0;
+  return e;
+}
+
+static expr_t *make_index_expr(expr_t *array, expr_t *index) {
+  expr_t *e         = malloc(sizeof(expr_t));
+  e->kind           = EXPR_INDEX;
+  e->index_.array   = array;
+  e->index_.index   = index;
+  e->line = e->col  = 0;
+  return e;
+}
+
+static void insert_var(symtab_t *venv, char *name, semty_t *ty) {
+  env_entry_t *e = malloc(sizeof(env_entry_t));
+  e->kind = ENV_VAR;
+  e->var  = ty;
+  symtab_insert(venv, name, e);
+}
+
+/* --- trans_var tests --- */
+
+int test_trans_var_id() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  semty_t *int_ty = symtab_lookup(tenv, "int");
+  insert_var(venv, "x", int_ty);
+  semty_t *result = trans_var(venv, tenv, make_id_expr("x"));
+  ASSERT(result != NULL);
+  ASSERT_EQ(result->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_var_id);
+
+int test_trans_var_id_undefined() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  semty_t *result = trans_var(venv, tenv, make_id_expr("x"));
+  ASSERT_EQ(result, NULL);
+  return 1;
+}
+REGISTER_TEST(test_trans_var_id_undefined);
+
+int test_trans_var_id_function() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  trans_dec(venv, tenv, make_func_dec("f", NULL, "int"));
+  semty_t *result = trans_var(venv, tenv, make_id_expr("f"));
+  ASSERT_EQ(result, NULL);
+  return 1;
+}
+REGISTER_TEST(test_trans_var_id_function);
+
+int test_trans_var_field() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  param_list_t *fields = make_param("x", "int", make_param("s", "string", NULL));
+  trans_dec(venv, tenv, make_type_dec("point", make_record_ty(fields)));
+  semty_t *point_ty = symtab_lookup(tenv, "point");
+  insert_var(venv, "p", point_ty);
+  semty_t *result = trans_var(venv, tenv, make_field_expr(make_id_expr("p"), "x"));
+  ASSERT(result != NULL);
+  ASSERT_EQ(result->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_var_field);
+
+int test_trans_var_field_unknown() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  param_list_t *fields = make_param("x", "int", NULL);
+  trans_dec(venv, tenv, make_type_dec("point", make_record_ty(fields)));
+  semty_t *point_ty = symtab_lookup(tenv, "point");
+  insert_var(venv, "p", point_ty);
+  semty_t *result = trans_var(venv, tenv, make_field_expr(make_id_expr("p"), "y"));
+  ASSERT_EQ(result, NULL);
+  return 1;
+}
+REGISTER_TEST(test_trans_var_field_unknown);
+
+int test_trans_var_index() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  trans_dec(venv, tenv, make_type_dec("intarr", make_array_ty("int")));
+  semty_t *arr_ty = symtab_lookup(tenv, "intarr");
+  insert_var(venv, "a", arr_ty);
+  semty_t *result = trans_var(venv, tenv, make_index_expr(make_id_expr("a"), make_int_expr(0)));
+  ASSERT(result != NULL);
+  ASSERT_EQ(result->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_var_index);
+
+int test_trans_var_index_non_int() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  trans_dec(venv, tenv, make_type_dec("intarr", make_array_ty("int")));
+  semty_t *arr_ty = symtab_lookup(tenv, "intarr");
+  insert_var(venv, "a", arr_ty);
+  semty_t *result = trans_var(venv, tenv, make_index_expr(make_id_expr("a"), make_string_expr("bad")));
+  ASSERT_EQ(result, NULL);
+  return 1;
+}
+REGISTER_TEST(test_trans_var_index_non_int);
+
+int test_trans_var_field_on_non_record() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  semty_t *int_ty = symtab_lookup(tenv, "int");
+  insert_var(venv, "x", int_ty);
+  semty_t *result = trans_var(venv, tenv, make_field_expr(make_id_expr("x"), "foo"));
+  ASSERT_EQ(result, NULL);
+  return 1;
+}
+REGISTER_TEST(test_trans_var_field_on_non_record);
+
+int test_trans_var_index_on_non_array() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  semty_t *int_ty = symtab_lookup(tenv, "int");
+  insert_var(venv, "x", int_ty);
+  semty_t *result = trans_var(venv, tenv, make_index_expr(make_id_expr("x"), make_int_expr(0)));
+  ASSERT_EQ(result, NULL);
+  return 1;
+}
+REGISTER_TEST(test_trans_var_index_on_non_array);
+
+/* --- trans_dec: DEC_VAR --- */
+
+int test_trans_dec_var_no_annotation() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  dec_t *d = malloc(sizeof(dec_t));
+  d->kind          = DEC_VAR;
+  d->var.id        = "x";
+  d->var.type_name = NULL;
+  d->var.init      = make_int_expr(5);
+  trans_dec(venv, tenv, d);
+  env_entry_t *entry = symtab_lookup(venv, "x");
+  ASSERT(entry != NULL);
+  ASSERT_EQ(entry->kind, ENV_VAR);
+  ASSERT_EQ(entry->var->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_dec_var_no_annotation);
+
+int test_trans_dec_var_with_annotation() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  dec_t *d = malloc(sizeof(dec_t));
+  d->kind          = DEC_VAR;
+  d->var.id        = "x";
+  d->var.type_name = "int";
+  d->var.init      = make_int_expr(5);
+  trans_dec(venv, tenv, d);
+  env_entry_t *entry = symtab_lookup(venv, "x");
+  ASSERT(entry != NULL);
+  ASSERT_EQ(entry->var->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_dec_var_with_annotation);
+
+int test_trans_dec_var_string() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  dec_t *d = malloc(sizeof(dec_t));
+  d->kind          = DEC_VAR;
+  d->var.id        = "s";
+  d->var.type_name = NULL;
+  d->var.init      = make_string_expr("hello");
+  trans_dec(venv, tenv, d);
+  env_entry_t *entry = symtab_lookup(venv, "s");
+  ASSERT(entry != NULL);
+  ASSERT_EQ(entry->var->kind, SEMTY_STRING);
+  return 1;
+}
+REGISTER_TEST(test_trans_dec_var_string);
