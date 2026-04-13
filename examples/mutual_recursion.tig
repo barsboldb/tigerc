@@ -1,0 +1,13 @@
+let
+  function isEven(n : int) : int =
+    if n = 0
+    then 1
+    else isOdd(n - 1)
+
+  function isOdd(n : int) : int =
+    if n = 0
+    then 0
+    else isEven(n - 1)
+in
+  isEven(10)
+end

@@ -178,6 +178,13 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
         return then;
       }
       semty_t *else_ = trans_expr(venv, tenv, e->if_.else_);
+      if (!else_ && !then) {
+        fprintf(stderr, "error: cannot infer return type, add a return type annotation");
+        return NULL;
+      }
+      if (!else_) {
+        return then;
+      }
       if (then->kind != else_->kind) {
         fprintf(stderr, "error: if expr type is ambigious\n");
         return NULL;
@@ -273,6 +280,10 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
         case OP_LE:
         case OP_AND:
         case OP_OR:
+          if (!l) {
+            fprintf(stderr, "error: unknown types around binary operation\n");
+            return NULL;
+          }
           if (l->kind != SEMTY_INT) {
             fprintf(stderr, "error: operands should be ints\n");
             return NULL;
@@ -352,11 +363,38 @@ void trans_dec(symtab_t *venv, symtab_t *tenv, dec_t *dec) {
         }
         p = p->next;
       }
+
       s->func.params = p_ty;
       s->func.ret = dec->func.type_name
         ? symtab_lookup(tenv, dec->func.type_name)
         : NULL;
       symtab_insert(venv, dec->func.id, s);
+      symtab_enter_scope(venv);
+
+      param_list_t *arg = dec->func.args;
+      param_ty_t   *pty = p_ty;
+      while (arg) {
+        env_entry_t *pe = malloc(sizeof(env_entry_t));
+        pe->kind = ENV_VAR;
+        pe->var  = pty->type;
+        symtab_insert(venv, arg->param->name, pe);
+        arg = arg->next;
+        pty = pty->next;
+      }
+
+      semty_t *body_ty = dec->func.body ? trans_expr(venv, tenv, dec->func.body) : NULL;
+      symtab_exit_scope(venv);
+
+      if (dec->func.type_name) {
+        if (body_ty && body_ty->kind != s->func.ret->kind) {
+          fprintf(stderr, "error function '%s' body type does not match declared return type\n", dec->func.id);
+        }
+      } else {
+        if (!body_ty) {
+          fprintf(stderr, "error: cannot infer return type of '%s', add a return type annotation\n", dec->func.id);
+        }
+        s->func.ret = body_ty;
+      }
       return;
     }
     case DEC_VAR: {

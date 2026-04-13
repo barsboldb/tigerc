@@ -751,3 +751,81 @@ int test_trans_dec_var_string() {
   return 1;
 }
 REGISTER_TEST(test_trans_dec_var_string);
+
+/* --- trans_dec: recursive and mutually recursive functions --- */
+
+// function fib(n: int): int = if n <= 1 then n else fib(n-1) + fib(n-2)
+int test_trans_dec_func_recursive() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+
+  expr_t *call1 = make_call_expr("fib",
+    make_expr_list(make_binop_expr(OP_SUB, make_id_expr("n"), make_int_expr(1)), NULL));
+  expr_t *call2 = make_call_expr("fib",
+    make_expr_list(make_binop_expr(OP_SUB, make_id_expr("n"), make_int_expr(2)), NULL));
+  expr_t *body = make_if_expr(
+    make_binop_expr(OP_LE, make_id_expr("n"), make_int_expr(1)),
+    make_id_expr("n"),
+    make_binop_expr(OP_ADD, call1, call2));
+
+  dec_t *d = malloc(sizeof(dec_t));
+  d->kind           = DEC_FUNC;
+  d->func.id        = "fib";
+  d->func.type_name = "int";
+  d->func.args      = make_param("n", "int", NULL);
+  d->func.body      = body;
+
+  trans_dec(venv, tenv, d);
+  env_entry_t *entry = symtab_lookup(venv, "fib");
+  ASSERT(entry != NULL);
+  ASSERT_EQ(entry->kind, ENV_FUNC);
+  ASSERT(entry->func.ret != NULL);
+  ASSERT_EQ(entry->func.ret->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_dec_func_recursive);
+
+// function isEven(n: int): int = if n = 0 then 1 else isOdd(n-1)
+// function isOdd(n: int): int  = if n = 0 then 0 else isEven(n-1)
+int test_trans_dec_func_mutually_recursive() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+
+  expr_t *even_body = make_if_expr(
+    make_binop_expr(OP_EQ, make_id_expr("n"), make_int_expr(0)),
+    make_int_expr(1),
+    make_call_expr("isOdd",
+      make_expr_list(make_binop_expr(OP_SUB, make_id_expr("n"), make_int_expr(1)), NULL)));
+
+  expr_t *odd_body = make_if_expr(
+    make_binop_expr(OP_EQ, make_id_expr("n"), make_int_expr(0)),
+    make_int_expr(0),
+    make_call_expr("isEven",
+      make_expr_list(make_binop_expr(OP_SUB, make_id_expr("n"), make_int_expr(1)), NULL)));
+
+  dec_t *d_even = malloc(sizeof(dec_t));
+  d_even->kind           = DEC_FUNC;
+  d_even->func.id        = "isEven";
+  d_even->func.type_name = "int";
+  d_even->func.args      = make_param("n", "int", NULL);
+  d_even->func.body      = even_body;
+
+  dec_t *d_odd = malloc(sizeof(dec_t));
+  d_odd->kind           = DEC_FUNC;
+  d_odd->func.id        = "isOdd";
+  d_odd->func.type_name = "int";
+  d_odd->func.args      = make_param("n", "int", NULL);
+  d_odd->func.body      = odd_body;
+
+  trans_dec(venv, tenv, d_even);
+  trans_dec(venv, tenv, d_odd);
+
+  env_entry_t *even_entry = symtab_lookup(venv, "isEven");
+  env_entry_t *odd_entry  = symtab_lookup(venv, "isOdd");
+  ASSERT(even_entry != NULL);
+  ASSERT(odd_entry  != NULL);
+  ASSERT_EQ(even_entry->func.ret->kind, SEMTY_INT);
+  ASSERT_EQ(odd_entry->func.ret->kind,  SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_dec_func_mutually_recursive);
