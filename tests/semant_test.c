@@ -221,6 +221,7 @@ int test_trans_dec_func_no_params_no_ret() {
   symtab_t *tenv = base_tenv();
   symtab_t *venv = base_venv();
   dec_t *d = make_func_dec("f", NULL, NULL);
+  trans_dec_header(venv, tenv, d);
   trans_dec(venv, tenv, d);
   env_entry_t *entry = symtab_lookup(venv, "f");
   ASSERT(entry != NULL);
@@ -235,6 +236,7 @@ int test_trans_dec_func_with_return_type() {
   symtab_t *tenv = base_tenv();
   symtab_t *venv = base_venv();
   dec_t *d = make_func_dec("f", NULL, "int");
+  trans_dec_header(venv, tenv, d);
   trans_dec(venv, tenv, d);
   env_entry_t *entry = symtab_lookup(venv, "f");
   ASSERT(entry != NULL);
@@ -248,6 +250,7 @@ int test_trans_dec_func_with_params() {
   symtab_t *venv = base_venv();
   param_list_t *args = make_param("x", "int", make_param("s", "string", NULL));
   dec_t *d = make_func_dec("f", args, "int");
+  trans_dec_header(venv, tenv, d);
   trans_dec(venv, tenv, d);
   env_entry_t *entry = symtab_lookup(venv, "f");
   ASSERT(entry != NULL);
@@ -266,6 +269,7 @@ int test_trans_dec_func_inserted_in_venv() {
   symtab_t *tenv = base_tenv();
   symtab_t *venv = base_venv();
   dec_t *d = make_func_dec("myfunc", NULL, NULL);
+  trans_dec_header(venv, tenv, d);
   trans_dec(venv, tenv, d);
   ASSERT(symtab_lookup(venv, "myfunc") != NULL);
   ASSERT_EQ(symtab_lookup(venv, "unknown"), NULL);
@@ -507,6 +511,7 @@ int test_trans_expr_call_no_args() {
   symtab_t *tenv = base_tenv();
   symtab_t *venv = base_venv();
   dec_t *d = make_func_dec("f", NULL, "int");
+  trans_dec_header(venv, tenv, d);
   trans_dec(venv, tenv, d);
   expr_t *e = make_call_expr("f", NULL);
   semty_t *result = trans_expr(venv, tenv, e);
@@ -521,6 +526,7 @@ int test_trans_expr_call_with_args() {
   symtab_t *venv = base_venv();
   param_list_t *params = make_param("x", "int", NULL);
   dec_t *d = make_func_dec("f", params, "string");
+  trans_dec_header(venv, tenv, d);
   trans_dec(venv, tenv, d);
   expr_list_t *args = make_expr_list(make_int_expr(1), NULL);
   expr_t *e = make_call_expr("f", args);
@@ -620,7 +626,9 @@ REGISTER_TEST(test_trans_var_id_undefined);
 int test_trans_var_id_function() {
   symtab_t *tenv = base_tenv();
   symtab_t *venv = base_venv();
-  trans_dec(venv, tenv, make_func_dec("f", NULL, "int"));
+  dec_t *fd = make_func_dec("f", NULL, "int");
+  trans_dec_header(venv, tenv, fd);
+  trans_dec(venv, tenv, fd);
   semty_t *result = trans_var(venv, tenv, make_id_expr("f"));
   ASSERT_EQ(result, NULL);
   return 1;
@@ -775,6 +783,7 @@ int test_trans_dec_func_recursive() {
   d->func.args      = make_param("n", "int", NULL);
   d->func.body      = body;
 
+  trans_dec_header(venv, tenv, d);
   trans_dec(venv, tenv, d);
   env_entry_t *entry = symtab_lookup(venv, "fib");
   ASSERT(entry != NULL);
@@ -817,6 +826,8 @@ int test_trans_dec_func_mutually_recursive() {
   d_odd->func.args      = make_param("n", "int", NULL);
   d_odd->func.body      = odd_body;
 
+  trans_dec_header(venv, tenv, d_even);
+  trans_dec_header(venv, tenv, d_odd);
   trans_dec(venv, tenv, d_even);
   trans_dec(venv, tenv, d_odd);
 

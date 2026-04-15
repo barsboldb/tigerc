@@ -136,6 +136,30 @@ semty_t *trans_var(symtab_t *venv, symtab_t *tenv, expr_t *e) {
   }
 }
 
+void trans_dec_header(symtab_t *venv, symtab_t *tenv, dec_t *dec) {
+  env_entry_t *entry = malloc(sizeof(env_entry_t));
+  switch (dec->kind) {
+    case DEC_FUNC: {
+      entry->kind = ENV_FUNC;
+      param_list_t *p = dec->func.args;
+      param_ty_t *p_ty = NULL, *it = NULL;
+      while (p) {
+        param_ty_t *node = malloc(sizeof(param_ty_t));
+        node->type = symtab_lookup(tenv, p->param->type_name);
+        node->next = NULL;
+        if (!p_ty) p_ty = it = node;
+        else {
+          it = it->next = node;
+        }
+        p = p->next;
+      }
+      entry->func.params = p_ty;
+      entry->func.ret    = dec->func.type_name ? symtab_lookup(tenv, dec->func.type_name) : NULL;
+      symtab_insert(venv, dec->func.id, entry);
+    }
+  }
+}
+
 semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
   semty_t *s = malloc(sizeof(semty_t));
   switch (e->kind) {
@@ -251,6 +275,11 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
       symtab_enter_scope(tenv);
       dec_list_t *d = e->let.dec_list;
       while (d) {
+        trans_dec_header(venv, tenv, d->dec);
+        d = d->next;
+      }
+      d = e->let.dec_list;
+      while (d) {
         trans_dec(venv, tenv, d->dec);
         d = d->next;
       }
@@ -349,30 +378,11 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
 void trans_dec(symtab_t *venv, symtab_t *tenv, dec_t *dec) {
   switch (dec->kind) {
     case DEC_FUNC: {
-      env_entry_t *s = malloc(sizeof(env_entry_t));
-      s->kind = ENV_FUNC;
-      param_list_t *p = dec->func.args;
-      param_ty_t *p_ty = NULL, *it = NULL;
-      while (p) {
-        param_ty_t *node = malloc(sizeof(param_ty_t));
-        node->type = symtab_lookup(tenv, p->param->type_name);
-        node->next = NULL;
-        if (!p_ty) p_ty = it = node;
-        else {
-          it = it->next = node;
-        }
-        p = p->next;
-      }
-
-      s->func.params = p_ty;
-      s->func.ret = dec->func.type_name
-        ? symtab_lookup(tenv, dec->func.type_name)
-        : NULL;
-      symtab_insert(venv, dec->func.id, s);
+      env_entry_t *entry = symtab_lookup(venv, dec->func.id);
       symtab_enter_scope(venv);
 
       param_list_t *arg = dec->func.args;
-      param_ty_t   *pty = p_ty;
+      param_ty_t   *pty = entry->func.params;
       while (arg) {
         env_entry_t *pe = malloc(sizeof(env_entry_t));
         pe->kind = ENV_VAR;
@@ -385,15 +395,15 @@ void trans_dec(symtab_t *venv, symtab_t *tenv, dec_t *dec) {
       semty_t *body_ty = dec->func.body ? trans_expr(venv, tenv, dec->func.body) : NULL;
       symtab_exit_scope(venv);
 
-      if (dec->func.type_name) {
-        if (body_ty && body_ty->kind != s->func.ret->kind) {
+      if (entry->func.ret) {
+        if (body_ty && body_ty->kind != entry->func.ret->kind) {
           fprintf(stderr, "error function '%s' body type does not match declared return type\n", dec->func.id);
         }
       } else {
         if (!body_ty) {
           fprintf(stderr, "error: cannot infer return type of '%s', add a return type annotation\n", dec->func.id);
         }
-        s->func.ret = body_ty;
+        entry->func.ret = body_ty;
       }
       return;
     }
