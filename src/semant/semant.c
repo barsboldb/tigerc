@@ -42,16 +42,61 @@ symtab_t *semant_base_venv(symtab_t *tenv) {
   ty_void->kind = SEMTY_VOID;
 
   symtab_enter_scope(venv);
-  symtab_insert(venv, "print", make_func_entry(make_param_ty(ty_string, NULL), ty_void));
+  symtab_insert(venv, "print",
+    make_func_entry(
+      make_param_ty(ty_string, NULL),
+      ty_void
+    )
+  );
   symtab_insert(venv, "flush", make_func_entry(NULL, ty_void));
   symtab_insert(venv, "getchar", make_func_entry(NULL, ty_string));
-  symtab_insert(venv, "ord", make_func_entry(make_param_ty(ty_string, NULL), ty_int));
-  symtab_insert(venv, "chr", make_func_entry(make_param_ty(ty_int, NULL), ty_string));
-  symtab_insert(venv, "size", make_func_entry(make_param_ty(ty_string, NULL), ty_int));
-  symtab_insert(venv, "not", make_func_entry(make_param_ty(ty_int, NULL), ty_int));
-  symtab_insert(venv, "exit", make_func_entry(make_param_ty(ty_int, NULL), ty_void));
-  symtab_insert(venv, "concat", make_func_entry(make_param_ty(ty_string, make_param_ty(ty_string, NULL)), ty_string));
-  symtab_insert(venv, "substring", make_func_entry(make_param_ty(ty_string, make_param_ty(ty_int, make_param_ty(ty_int, NULL))), ty_string));
+  symtab_insert(venv, "ord",
+    make_func_entry(
+      make_param_ty(ty_string, NULL),
+      ty_int
+    )
+  );
+  symtab_insert(venv, "chr",
+    make_func_entry(
+      make_param_ty(ty_int, NULL),
+      ty_string
+    )
+  );
+  symtab_insert(venv, "size",
+    make_func_entry(
+      make_param_ty(ty_string, NULL),
+      ty_int
+    )
+  );
+  symtab_insert(venv, "not",
+    make_func_entry(
+      make_param_ty(ty_int, NULL),
+      ty_int
+    )
+  );
+  symtab_insert(venv, "exit",
+    make_func_entry(
+      make_param_ty(ty_int, NULL),
+      ty_void
+    )
+  );
+  symtab_insert(venv, "concat",
+    make_func_entry(
+      make_param_ty(ty_string,
+        make_param_ty(ty_string, NULL)),
+      ty_string
+    )
+  );
+  symtab_insert(venv, "substring",
+    make_func_entry(
+      make_param_ty(ty_string,
+        make_param_ty(ty_int,
+          make_param_ty(ty_int, NULL)
+        )
+      ),
+      ty_string
+    )
+  );
 
   return venv;
 }
