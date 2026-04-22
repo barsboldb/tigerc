@@ -1,0 +1,6 @@
+let
+  type list = { val: int, next: list }
+  var a := list { val = 1, next = nil }
+in
+a
+end

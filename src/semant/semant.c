@@ -23,11 +23,14 @@ symtab_t *semant_base_tenv() {
 
   semty_t *int_ty    = malloc(sizeof(semty_t));
   semty_t *string_ty = malloc(sizeof(semty_t));
+  semty_t *null_ty   = malloc(sizeof(semty_t));
   int_ty->kind    = SEMTY_INT;
   string_ty->kind = SEMTY_STRING;
+  null_ty->kind   = SEMTY_NIL;
   symtab_enter_scope(tenv);
   symtab_insert(tenv, "int",    int_ty);
   symtab_insert(tenv, "string", string_ty);
+  symtab_insert(tenv, "nil",   null_ty);
 
   return tenv;
 }
@@ -137,9 +140,9 @@ semty_t *trans_var(symtab_t *venv, symtab_t *tenv, expr_t *e) {
 }
 
 void trans_dec_header(symtab_t *venv, symtab_t *tenv, dec_t *dec) {
-  env_entry_t *entry = malloc(sizeof(env_entry_t));
   switch (dec->kind) {
     case DEC_FUNC: {
+      env_entry_t *entry = malloc(sizeof(env_entry_t));
       entry->kind = ENV_FUNC;
       param_list_t *p = dec->func.args;
       param_ty_t *p_ty = NULL, *it = NULL;
@@ -156,7 +159,15 @@ void trans_dec_header(symtab_t *venv, symtab_t *tenv, dec_t *dec) {
       entry->func.params = p_ty;
       entry->func.ret    = dec->func.type_name ? symtab_lookup(tenv, dec->func.type_name) : NULL;
       symtab_insert(venv, dec->func.id, entry);
+      return;
     }
+    case DEC_TYPE: {
+      semty_t *ty = malloc(sizeof(semty_t));
+      ty->kind = SEMTY_NAME;
+      ty->name = dec->type.name;
+      symtab_insert(tenv, dec->type.name, ty);
+    }
+    default: return;
   }
 }
 
@@ -180,15 +191,18 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
     case EXPR_ASSIGN: {
       env_entry_t *rhs = symtab_lookup(venv, e->assign.var);
       semty_t *lhs = trans_expr(venv, tenv, e->assign.rhs);
+      s->kind = SEMTY_VOID;
       if (rhs->kind != ENV_VAR) {
         fprintf(stderr, "error: cannot assign to function expr\n");
         return NULL;
+      }
+      if (lhs->kind == SEMTY_NIL && rhs->var->kind == SEMTY_RECORD) {
+        return s;
       }
       if (rhs->var->kind != lhs->kind) {
         fprintf(stderr, "error: type mismatch in assign '%s'\n", e->assign.var);
         return NULL;
       }
-      s->kind = SEMTY_VOID;
       return s;
     }
     case EXPR_IF: {
@@ -348,6 +362,12 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
         }
 
         semty_t *s = trans_expr(venv, tenv, field->val);
+
+        if (s->kind == SEMTY_NIL) {
+          field = field->next;
+          continue;
+        }
+        
         if (s->kind != field_ty->type->kind) {
           fprintf(stderr, "error: record field type mismatch\n");
         }
