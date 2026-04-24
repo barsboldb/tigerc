@@ -101,6 +101,12 @@ symtab_t *semant_base_venv(symtab_t *tenv) {
   return venv;
 }
 
+static semty_t *actual_ty(symtab_t *tenv, semty_t *ty) {
+  while (ty && ty->kind == SEMTY_NAME)
+    ty = symtab_lookup(tenv, ty->name);
+  return ty;
+}
+
 semty_t *trans_ty(symtab_t *tenv, ty_t *ty) {
   switch (ty->kind) {
     case TY_NAME:
@@ -384,6 +390,8 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
           return res;
         case OP_EQ:
         case OP_NEQ:
+          l = actual_ty(tenv, l);
+          r = actual_ty(tenv, r);
           if (l->kind != r->kind) {
             fprintf(stderr, "error: operands should be same type\n");
             return NULL;
@@ -413,7 +421,9 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
           continue;
         }
         
-        if (s->kind != field_ty->type->kind) {
+        s = actual_ty(tenv, s);
+        semty_t *f = actual_ty(tenv, field_ty->type);
+        if (s->kind != f->kind) {
           fprintf(stderr, "error: record field type mismatch\n");
         }
         field = field->next;
