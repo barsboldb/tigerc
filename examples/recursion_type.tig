@@ -1,6 +1,7 @@
 let
-  type list = { val: int, next: list }
-  var a := list { val = 1, next = nil }
+  type list = { val: int, next: tree }
+  type tree = { val: list, right: tree }
+  var a := list { val = 1, next = tree { val = nil, right = nil } }
 in
 a
 end

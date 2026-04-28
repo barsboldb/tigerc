@@ -50,6 +50,7 @@ typedef struct expr_list_t {
 typedef struct param_t {
   char *name;
   char *type_name;
+  int   escape;
 } param_t;
 
 typedef struct param_list_t {
@@ -79,6 +80,7 @@ typedef struct dec_t {
       char          *id;
       char          *type_name;
       struct expr_t *init;
+      int            escape;
     } var;
 
     struct {
@@ -144,6 +146,7 @@ typedef struct expr_t {
       struct expr_t *init;
       struct expr_t *to;
       struct expr_t *body;
+      int            escape;
     } for_;
 
     struct {

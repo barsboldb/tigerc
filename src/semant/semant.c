@@ -156,6 +156,7 @@ semty_t *trans_var(symtab_t *venv, symtab_t *tenv, expr_t *e) {
       semty_t *record_ty = trans_var(venv, tenv, e->field_.record);
       if (record_ty->kind != SEMTY_RECORD) {
         fprintf(stderr, "error: field access is only allowed with record type\n");
+        return NULL;
       }
       field_ty_t *field_ty = record_ty->record;
 
