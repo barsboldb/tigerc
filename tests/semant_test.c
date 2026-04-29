@@ -840,3 +840,55 @@ int test_trans_dec_func_mutually_recursive() {
   return 1;
 }
 REGISTER_TEST(test_trans_dec_func_mutually_recursive);
+
+int test_trans_expr_call_nil_to_record_param() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+  param_list_t *fields = make_param("x", "int", NULL);
+  trans_dec(venv, tenv, make_type_dec("point", make_record_ty(fields)));
+  param_list_t *params = make_param("p", "point", NULL);
+  dec_t *d = make_func_dec("f", params, "int");
+  trans_dec_header(venv, tenv, d);
+  trans_dec(venv, tenv, d);
+  expr_list_t *args = make_expr_list(make_nil_expr(), NULL);
+  expr_t *e = make_call_expr("f", args);
+  semty_t *result = trans_expr(venv, tenv, e);
+  ASSERT(result != NULL);
+  ASSERT_EQ(result->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_expr_call_nil_to_record_param);
+
+int test_trans_expr_call_nil_to_mutually_recursive_record_param() {
+  symtab_t *tenv = base_tenv();
+  symtab_t *venv = base_venv();
+
+  // type list = { val: int, next: tree }
+  dec_t *d_list = make_type_dec("list",
+    make_record_ty(make_param("val", "int", make_param("next", "tree", NULL))));
+  // type tree = { val: list, right: tree }
+  dec_t *d_tree = make_type_dec("tree",
+    make_record_ty(make_param("val", "list", make_param("right", "tree", NULL))));
+
+  // insert SEMTY_NAME placeholders for both types
+  trans_dec_header(venv, tenv, d_list);
+  trans_dec_header(venv, tenv, d_tree);
+
+  // function isOdd(l: list): int — param type will be SEMTY_NAME at this point
+  dec_t *d_func = make_func_dec("isOdd", make_param("l", "list", NULL), "int");
+  trans_dec_header(venv, tenv, d_func);
+
+  // resolve types
+  trans_dec(venv, tenv, d_list);
+  trans_dec(venv, tenv, d_tree);
+  trans_dec(venv, tenv, d_func);
+
+  // isOdd(nil) should be valid since list is a record type
+  expr_list_t *args = make_expr_list(make_nil_expr(), NULL);
+  expr_t *e = make_call_expr("isOdd", args);
+  semty_t *result = trans_expr(venv, tenv, e);
+  ASSERT(result != NULL);
+  ASSERT_EQ(result->kind, SEMTY_INT);
+  return 1;
+}
+REGISTER_TEST(test_trans_expr_call_nil_to_mutually_recursive_record_param);

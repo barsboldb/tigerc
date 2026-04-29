@@ -319,9 +319,13 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
       param_ty_t *p = f->func.params;
       expr_list_t *a = e->call.arg_list;
       while (p) {
-        if (p->type->kind != trans_expr(venv, tenv, a->expr)->kind) {
-          fprintf(stderr, "error: param type mismatch\n");
-          return NULL;
+        semty_t *arg_ty  = trans_expr(venv, tenv, a->expr);
+        semty_t *param_ty = actual_ty(tenv, p->type);
+        if (param_ty->kind != arg_ty->kind) {
+          if (!(param_ty->kind == SEMTY_RECORD && arg_ty->kind == SEMTY_NIL)) {
+            fprintf(stderr, "error: param type mismatch\n");
+            return NULL;
+          }
         }
         p = p->next;
         a = a->next;
