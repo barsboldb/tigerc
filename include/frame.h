@@ -1,8 +1,11 @@
 #ifndef FRAME_H
 #define FRAME_H
 
-#define WORD_SIZE  8
 #define REG_TBD   -1
+
+#include "temp.h"
+
+extern const int WORD_SIZE;
 
 typedef enum {
   ACCESS_FRAME,
@@ -26,5 +29,7 @@ typedef struct frame_t {
 
 frame_t  *frame_new(char *name, int *escapes, int num_params);
 access_t *frame_alloc_local(frame_t *f, int escapes);
+temp_t frame_fp(void);
+temp_t frame_rv(void);
 
 #endif
