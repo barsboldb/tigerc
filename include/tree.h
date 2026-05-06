@@ -10,6 +10,7 @@ typedef enum {
   TREE_MEM,
   TREE_CALL,
   TREE_ESEQ,
+  TREE_NAME,
 } tree_expr_kind_t;
 
 
@@ -61,6 +62,7 @@ typedef struct tree_expr_t {
       struct tree_stmt_t *s;
       struct tree_expr_t *e;
     } eseq;
+    label_t name;
   };
 } tree_expr_t;
 
@@ -101,6 +103,7 @@ tree_expr_t *tree_binop(tree_binop_t op, tree_expr_t *e1, tree_expr_t *e2);
 tree_expr_t *tree_mem(tree_expr_t *e);
 tree_expr_t *tree_call(tree_expr_t *name, tree_expr_t **actuals, int num_actuals);
 tree_expr_t *tree_eseq(tree_stmt_t *s, tree_expr_t *e);
+tree_expr_t *tree_name(label_t l);
 
 tree_stmt_t *tree_move(tree_expr_t *d, tree_expr_t *s);
 tree_stmt_t *tree_exp(tree_expr_t *e);

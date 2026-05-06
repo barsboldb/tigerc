@@ -42,6 +42,12 @@ tree_expr_t *tree_eseq(tree_stmt_t *s, tree_expr_t *e) {
   ex->eseq.e = e;
   return ex;
 }
+tree_expr_t *tree_name(label_t l) {
+  tree_expr_t *ex = malloc(sizeof(tree_expr_t));
+  ex->kind = TREE_NAME;
+  ex->name = l;
+  return ex;
+}
 
 tree_stmt_t *tree_move(tree_expr_t *d, tree_expr_t *s) {
   tree_stmt_t *st = malloc(sizeof(tree_stmt_t));
