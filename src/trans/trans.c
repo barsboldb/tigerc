@@ -408,8 +408,14 @@ tr_exp_t *tr_expr(symtab_t *aenv, frame_t *frame, expr_t *e) {
       tree_stmt_t *all = field_inits ? tree_seq(alloc, field_inits) : alloc;
       return tr_ex(tree_eseq(all, tree_temp(r)));
     }
-    case EXPR_ARRAY:
-      break;
+    case EXPR_ARRAY: {
+      tree_expr_t **actuals = malloc(2 * sizeof(tree_expr_t *));
+      actuals[0] = un_ex(tr_expr(aenv, frame, e->array.size));
+      actuals[1] = un_ex(tr_expr(aenv, frame, e->array.init));
+      return tr_ex(
+        tree_call(tree_name(label_named("init_array")), actuals, 2)
+      );
+    }
   }
 }
 tr_exp_t *tr_dec(symtab_t *aenv, frame_t *frame, dec_t *d) {
@@ -477,7 +483,6 @@ tr_exp_t *tr_var(symtab_t *aenv, frame_t *frame, expr_t *e) {
       );
     }
     case EXPR_FIELD: {
-
     }
     default: assert(0);
   }
