@@ -1,5 +1,6 @@
 #include "test.h"
 #include "trans.h"
+#include "semant.h"
 #include "frame.h"
 #include "tree.h"
 #include "ast.h"
@@ -369,6 +370,37 @@ int test_tr_expr_array() {
 }
 REGISTER_TEST(test_tr_expr_array);
 
+/* type point = { x: int, y: int } — fields given as y=2, x=1 (reversed).
+ * Correct translation must place x (val=1) at offset 0 and y (val=2) at
+ * offset WORD_SIZE regardless of source order. Fails until tenv is threaded
+ * through and field ordering is fixed. */
+int test_tr_expr_record_canonical_field_order() {
+  symtab_t *aenv = make_aenv();
+  frame_t *f = make_frame();
+  field_list_t *fields = make_field("y", make_int(2), make_field("x", make_int(1), NULL));
+  tr_exp_t *r = tr_expr(aenv, f, make_record("point", fields));
+  ASSERT_EQ(r->kind, TR_EX);
+  ASSERT_EQ(r->ex->kind, TREE_ESEQ);
+  tree_stmt_t *seq = r->ex->eseq.s;
+  ASSERT_EQ(seq->kind, TREE_SEQ);
+  /* first init: MOVE(MEM(r + 0), x_val=1) */
+  tree_stmt_t *first = seq->seq.s1;
+  ASSERT_EQ(first->kind, TREE_MOVE);
+  ASSERT_EQ(first->move.d->kind, TREE_MEM);
+  tree_expr_t *addr0 = first->move.d->mem;
+  ASSERT_EQ(addr0->binop.e2->const_, 0); /* offset 0 → x */
+  ASSERT_EQ(first->move.s->const_, 1);   /* value 1 → x=1 */
+  /* second init: MOVE(MEM(r + WORD_SIZE), y_val=2) */
+  tree_stmt_t *second = seq->seq.s2;
+  ASSERT_EQ(second->kind, TREE_MOVE);
+  ASSERT_EQ(second->move.d->kind, TREE_MEM);
+  tree_expr_t *addr1 = second->move.d->mem;
+  ASSERT_EQ(addr1->binop.e2->const_, WORD_SIZE); /* offset WORD_SIZE → y */
+  ASSERT_EQ(second->move.s->const_, 2);           /* value 2 → y=2 */
+  return 1;
+}
+REGISTER_TEST(test_tr_expr_record_canonical_field_order);
+
 int test_tr_expr_array_expr_size() {
   symtab_t *aenv = make_aenv();
   frame_t *f = make_frame();
@@ -566,6 +598,49 @@ int test_un_cx_from_cx() {
   return 1;
 }
 REGISTER_TEST(test_un_cx_from_cx);
+
+int test_tr_var_field() {
+  /* set up semant globals with a record type: point = { x: int, y: int } */
+  tenv = semant_base_tenv();
+  venv = semant_base_venv(tenv);
+  dec_t *type_dec = malloc(sizeof(dec_t));
+  type_dec->kind = DEC_TYPE;
+  type_dec->type.name = "point";
+  type_dec->type.ty   = malloc(sizeof(ty_t));
+  type_dec->type.ty->kind   = TY_RECORD;
+  param_t *px = malloc(sizeof(param_t)); px->name = "x"; px->type_name = "int";
+  param_t *py = malloc(sizeof(param_t)); py->name = "y"; py->type_name = "int";
+  param_list_t *py_l = malloc(sizeof(param_list_t)); py_l->param = py; py_l->next = NULL;
+  param_list_t *px_l = malloc(sizeof(param_list_t)); px_l->param = px; px_l->next = py_l;
+  type_dec->type.ty->fields = px_l;
+  trans_dec(type_dec);
+
+  /* register "r : point" in venv */
+  semty_t *point_ty = symtab_lookup(tenv, "point");
+  env_entry_t *ve = malloc(sizeof(env_entry_t));
+  ve->kind = ENV_VAR; ve->var = point_ty;
+  symtab_insert(venv, "r", ve);
+
+  /* register "r" in aenv too */
+  symtab_t *aenv = make_aenv();
+  frame_t *fr = make_frame();
+  insert_local(aenv, fr, "r", 0);
+
+  expr_t *e = malloc(sizeof(expr_t));
+  e->kind = EXPR_FIELD;
+  e->field_.record = make_id("r");
+  e->field_.field  = "x";
+  e->line = e->col = 0;
+
+  tr_exp_t *r = tr_var(aenv, fr, e);
+  ASSERT(r != NULL);
+  ASSERT_EQ(r->kind, TR_EX);
+  ASSERT_EQ(r->ex->kind, TREE_MEM);
+  /* x is field 0 → offset 0 */
+  ASSERT_EQ(r->ex->mem->binop.e2->const_, 0);
+  return 1;
+}
+REGISTER_TEST(test_tr_var_field);
 
 /* ================================================================
    assign test

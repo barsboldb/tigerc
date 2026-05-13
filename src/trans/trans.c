@@ -1,9 +1,11 @@
 #include <assert.h>
+#include <string.h>
 #include <stdlib.h>
 #include "trans.h"
 #include "frag.h"
 #include "frame.h"
 #include "tree.h"
+#include "semant.h"
 
 static tree_binop_t map_binop(binop_t op) {
   switch (op) {
@@ -483,6 +485,19 @@ tr_exp_t *tr_var(symtab_t *aenv, frame_t *frame, expr_t *e) {
       );
     }
     case EXPR_FIELD: {
+      tr_exp_t *base = tr_var(aenv, frame, e->field_.record);
+      semty_t *ty = trans_var(e->field_.record);
+      if (!ty || ty->kind != SEMTY_RECORD) return NULL;
+
+      int index = 0;
+      for (field_ty_t *f = ty->record; f; f = f->next, index++) {
+        if (strcmp(f->name, e->field_.field) == 0) break;
+      }
+
+      return tr_ex(tree_mem(tree_binop(
+        TREE_ADD,
+        un_ex(base),
+        tree_const(index * WORD_SIZE))));
     }
     default: assert(0);
   }
