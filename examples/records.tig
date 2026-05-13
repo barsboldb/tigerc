@@ -4,5 +4,5 @@ let
   function distance(p : point) : int =
     p.x * p.x + p.y * p.y
 in
-  distance(point { x = 3, y = 4 })
+  distance(point { y = 4, x = 3 })
 end
