@@ -42,11 +42,11 @@ int test_frame_new_none_escaped() {
   ASSERT_EQ(f->num_formals, 3);
   ASSERT_EQ(f->local_count, 0);
   ASSERT_EQ(f->formals[0].kind, ACCESS_REG);
-  ASSERT_EQ(f->formals[0].reg,  0);
   ASSERT_EQ(f->formals[1].kind, ACCESS_REG);
-  ASSERT_EQ(f->formals[1].reg,  1);
   ASSERT_EQ(f->formals[2].kind, ACCESS_REG);
-  ASSERT_EQ(f->formals[2].reg,  2);
+  /* temps are abstract IDs assigned by temp_new(); just verify they're distinct */
+  ASSERT(f->formals[0].reg != f->formals[1].reg);
+  ASSERT(f->formals[1].reg != f->formals[2].reg);
   return 1;
 }
 REGISTER_TEST(test_frame_new_none_escaped);
@@ -58,14 +58,13 @@ int test_frame_new_mixed_escapes() {
   frame_t *f = frame_new("f", escapes, 4);
   ASSERT(f != NULL);
   ASSERT_EQ(f->local_count, 2);
-  ASSERT_EQ(f->formals[0].kind, ACCESS_REG);
-  ASSERT_EQ(f->formals[0].reg,  0);
+  ASSERT_EQ(f->formals[0].kind,   ACCESS_REG);
   ASSERT_EQ(f->formals[1].kind,   ACCESS_FRAME);
   ASSERT_EQ(f->formals[1].offset, -8);
-  ASSERT_EQ(f->formals[2].kind, ACCESS_REG);
-  ASSERT_EQ(f->formals[2].reg,  1);
+  ASSERT_EQ(f->formals[2].kind,   ACCESS_REG);
   ASSERT_EQ(f->formals[3].kind,   ACCESS_FRAME);
   ASSERT_EQ(f->formals[3].offset, -16);
+  ASSERT(f->formals[0].reg != f->formals[2].reg);
   return 1;
 }
 REGISTER_TEST(test_frame_new_mixed_escapes);
@@ -92,7 +91,7 @@ int test_frame_alloc_local_not_escaped() {
   access_t *a = frame_alloc_local(f, 0);
   ASSERT(a != NULL);
   ASSERT_EQ(a->kind, ACCESS_REG);
-  ASSERT_EQ(a->reg,  REG_TBD);
+  ASSERT(a->reg != REG_TBD); /* temp_new() assigns a real abstract temp immediately */
   ASSERT_EQ(f->local_count, 0);
   return 1;
 }
