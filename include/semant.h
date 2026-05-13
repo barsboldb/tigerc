@@ -5,6 +5,9 @@
 #include "symtab.h"
 #include "ast.h"
 
+extern symtab_t *venv;
+extern symtab_t *tenv;
+
 typedef enum {
   ENV_VAR,
   ENV_FUNC,
@@ -29,10 +32,10 @@ typedef struct {
 symtab_t *semant_base_venv(symtab_t *tenv);
 symtab_t *semant_base_tenv();
 
-semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e);
-semty_t *trans_var(symtab_t *venv, symtab_t *tenv, expr_t *e);
-semty_t *trans_ty(symtab_t *tenv, ty_t *ty);
-void     trans_dec_header(symtab_t *venv, symtab_t *tenv, dec_t *d);
-void     trans_dec(symtab_t *venv, symtab_t *tenv, dec_t *d);
+semty_t *trans_expr(expr_t *e);
+semty_t *trans_var(expr_t *e);
+semty_t *trans_ty(ty_t *ty);
+void     trans_dec_header(dec_t *d);
+void     trans_dec(dec_t *d);
 
 #endif

@@ -6,7 +6,7 @@
 #include <stdlib.h>
 
 static symtab_t *base_tenv() {
-  symtab_t *tenv = symtab_new(16);
+  tenv = symtab_new(16);
   semty_t *int_ty    = malloc(sizeof(semty_t));
   semty_t *string_ty = malloc(sizeof(semty_t));
   int_ty->kind    = SEMTY_INT;
@@ -49,9 +49,9 @@ static param_list_t *make_param(char *name, char *type_name, param_list_t *next)
 }
 
 int test_trans_ty_name_int() {
-  symtab_t *tenv = base_tenv();
+  base_tenv();
   ty_t *ty = make_name_ty("int");
-  semty_t *result = trans_ty(tenv, ty);
+  semty_t *result = trans_ty(ty);
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_INT);
   return 1;
@@ -59,9 +59,9 @@ int test_trans_ty_name_int() {
 REGISTER_TEST(test_trans_ty_name_int);
 
 int test_trans_ty_name_string() {
-  symtab_t *tenv = base_tenv();
+  base_tenv();
   ty_t *ty = make_name_ty("string");
-  semty_t *result = trans_ty(tenv, ty);
+  semty_t *result = trans_ty(ty);
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_STRING);
   return 1;
@@ -69,18 +69,18 @@ int test_trans_ty_name_string() {
 REGISTER_TEST(test_trans_ty_name_string);
 
 int test_trans_ty_name_unknown() {
-  symtab_t *tenv = base_tenv();
+  base_tenv();
   ty_t *ty = make_name_ty("unknown");
-  semty_t *result = trans_ty(tenv, ty);
+  semty_t *result = trans_ty(ty);
   ASSERT_EQ(result, NULL);
   return 1;
 }
 REGISTER_TEST(test_trans_ty_name_unknown);
 
 int test_trans_ty_array_of_int() {
-  symtab_t *tenv = base_tenv();
+  base_tenv();
   ty_t *ty = make_array_ty("int");
-  semty_t *result = trans_ty(tenv, ty);
+  semty_t *result = trans_ty(ty);
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_ARRAY);
   ASSERT(result->array != NULL);
@@ -90,9 +90,9 @@ int test_trans_ty_array_of_int() {
 REGISTER_TEST(test_trans_ty_array_of_int);
 
 int test_trans_ty_array_of_string() {
-  symtab_t *tenv = base_tenv();
+  base_tenv();
   ty_t *ty = make_array_ty("string");
-  semty_t *result = trans_ty(tenv, ty);
+  semty_t *result = trans_ty(ty);
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_ARRAY);
   ASSERT_EQ(result->array->kind, SEMTY_STRING);
@@ -101,9 +101,9 @@ int test_trans_ty_array_of_string() {
 REGISTER_TEST(test_trans_ty_array_of_string);
 
 int test_trans_ty_record_empty() {
-  symtab_t *tenv = base_tenv();
+  base_tenv();
   ty_t *ty = make_record_ty(NULL);
-  semty_t *result = trans_ty(tenv, ty);
+  semty_t *result = trans_ty(ty);
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_RECORD);
   ASSERT_EQ(result->record, NULL);
@@ -112,10 +112,10 @@ int test_trans_ty_record_empty() {
 REGISTER_TEST(test_trans_ty_record_empty);
 
 int test_trans_ty_record_single_field() {
-  symtab_t *tenv = base_tenv();
+  base_tenv();
   param_list_t *fields = make_param("x", "int", NULL);
   ty_t *ty = make_record_ty(fields);
-  semty_t *result = trans_ty(tenv, ty);
+  semty_t *result = trans_ty(ty);
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_RECORD);
   ASSERT(result->record != NULL);
@@ -127,10 +127,10 @@ int test_trans_ty_record_single_field() {
 REGISTER_TEST(test_trans_ty_record_single_field);
 
 int test_trans_ty_record_multiple_fields() {
-  symtab_t *tenv = base_tenv();
+  base_tenv();
   param_list_t *fields = make_param("x", "int", make_param("s", "string", NULL));
   ty_t *ty = make_record_ty(fields);
-  semty_t *result = trans_ty(tenv, ty);
+  semty_t *result = trans_ty(ty);
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_RECORD);
   field_ty_t *f = result->record;
@@ -148,7 +148,7 @@ REGISTER_TEST(test_trans_ty_record_multiple_fields);
 /* --- helpers for trans_dec tests --- */
 
 static symtab_t *base_venv() {
-  symtab_t *venv = symtab_new(16);
+  venv = symtab_new(16);
   symtab_enter_scope(venv);
   return venv;
 }
@@ -174,10 +174,10 @@ static dec_t *make_func_dec(char *id, param_list_t *args, char *ret_type) {
 /* --- trans_dec: DEC_TYPE --- */
 
 int test_trans_dec_type_alias() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   dec_t *d = make_type_dec("myint", make_name_ty("int"));
-  trans_dec(venv, tenv, d);
+  trans_dec(d);
   semty_t *result = symtab_lookup(tenv, "myint");
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_INT);
@@ -186,10 +186,10 @@ int test_trans_dec_type_alias() {
 REGISTER_TEST(test_trans_dec_type_alias);
 
 int test_trans_dec_type_array() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   dec_t *d = make_type_dec("intarr", make_array_ty("int"));
-  trans_dec(venv, tenv, d);
+  trans_dec(d);
   semty_t *result = symtab_lookup(tenv, "intarr");
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_ARRAY);
@@ -199,11 +199,11 @@ int test_trans_dec_type_array() {
 REGISTER_TEST(test_trans_dec_type_array);
 
 int test_trans_dec_type_record() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   param_list_t *fields = make_param("x", "int", make_param("s", "string", NULL));
   dec_t *d = make_type_dec("point", make_record_ty(fields));
-  trans_dec(venv, tenv, d);
+  trans_dec(d);
   semty_t *result = symtab_lookup(tenv, "point");
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_RECORD);
@@ -218,11 +218,11 @@ REGISTER_TEST(test_trans_dec_type_record);
 /* --- trans_dec: DEC_FUNC --- */
 
 int test_trans_dec_func_no_params_no_ret() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   dec_t *d = make_func_dec("f", NULL, NULL);
-  trans_dec_header(venv, tenv, d);
-  trans_dec(venv, tenv, d);
+  trans_dec_header(d);
+  trans_dec(d);
   env_entry_t *entry = symtab_lookup(venv, "f");
   ASSERT(entry != NULL);
   ASSERT_EQ(entry->kind, ENV_FUNC);
@@ -233,11 +233,11 @@ int test_trans_dec_func_no_params_no_ret() {
 REGISTER_TEST(test_trans_dec_func_no_params_no_ret);
 
 int test_trans_dec_func_with_return_type() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   dec_t *d = make_func_dec("f", NULL, "int");
-  trans_dec_header(venv, tenv, d);
-  trans_dec(venv, tenv, d);
+  trans_dec_header(d);
+  trans_dec(d);
   env_entry_t *entry = symtab_lookup(venv, "f");
   ASSERT(entry != NULL);
   ASSERT_EQ(entry->func.ret->kind, SEMTY_INT);
@@ -246,12 +246,12 @@ int test_trans_dec_func_with_return_type() {
 REGISTER_TEST(test_trans_dec_func_with_return_type);
 
 int test_trans_dec_func_with_params() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   param_list_t *args = make_param("x", "int", make_param("s", "string", NULL));
   dec_t *d = make_func_dec("f", args, "int");
-  trans_dec_header(venv, tenv, d);
-  trans_dec(venv, tenv, d);
+  trans_dec_header(d);
+  trans_dec(d);
   env_entry_t *entry = symtab_lookup(venv, "f");
   ASSERT(entry != NULL);
   param_ty_t *p = entry->func.params;
@@ -266,11 +266,11 @@ int test_trans_dec_func_with_params() {
 REGISTER_TEST(test_trans_dec_func_with_params);
 
 int test_trans_dec_func_inserted_in_venv() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   dec_t *d = make_func_dec("myfunc", NULL, NULL);
-  trans_dec_header(venv, tenv, d);
-  trans_dec(venv, tenv, d);
+  trans_dec_header(d);
+  trans_dec(d);
   ASSERT(symtab_lookup(venv, "myfunc") != NULL);
   ASSERT_EQ(symtab_lookup(venv, "unknown"), NULL);
   return 1;
@@ -396,9 +396,9 @@ static expr_t *make_record_expr(char *type_name, field_list_t *fields) {
 /* --- trans_expr tests --- */
 
 int test_trans_expr_int() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
-  semty_t *result = trans_expr(venv, tenv, make_int_expr(42));
+  base_tenv();
+  base_venv();
+  semty_t *result = trans_expr(make_int_expr(42));
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_INT);
   return 1;
@@ -406,9 +406,9 @@ int test_trans_expr_int() {
 REGISTER_TEST(test_trans_expr_int);
 
 int test_trans_expr_string() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
-  semty_t *result = trans_expr(venv, tenv, make_string_expr("hello"));
+  base_tenv();
+  base_venv();
+  semty_t *result = trans_expr(make_string_expr("hello"));
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_STRING);
   return 1;
@@ -416,9 +416,9 @@ int test_trans_expr_string() {
 REGISTER_TEST(test_trans_expr_string);
 
 int test_trans_expr_nil() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
-  semty_t *result = trans_expr(venv, tenv, make_nil_expr());
+  base_tenv();
+  base_venv();
+  semty_t *result = trans_expr(make_nil_expr());
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_NIL);
   return 1;
@@ -426,95 +426,95 @@ int test_trans_expr_nil() {
 REGISTER_TEST(test_trans_expr_nil);
 
 int test_trans_expr_binop_add() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   expr_t *e = make_binop_expr(OP_ADD, make_int_expr(1), make_int_expr(2));
-  semty_t *result = trans_expr(venv, tenv, e);
+  semty_t *result = trans_expr(e);
   ASSERT_EQ(result->kind, SEMTY_INT);
   return 1;
 }
 REGISTER_TEST(test_trans_expr_binop_add);
 
 int test_trans_expr_binop_eq_ints() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   expr_t *e = make_binop_expr(OP_EQ, make_int_expr(1), make_int_expr(1));
-  semty_t *result = trans_expr(venv, tenv, e);
+  semty_t *result = trans_expr(e);
   ASSERT_EQ(result->kind, SEMTY_INT);
   return 1;
 }
 REGISTER_TEST(test_trans_expr_binop_eq_ints);
 
 int test_trans_expr_binop_eq_strings() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   expr_t *e = make_binop_expr(OP_EQ, make_string_expr("a"), make_string_expr("b"));
-  semty_t *result = trans_expr(venv, tenv, e);
+  semty_t *result = trans_expr(e);
   ASSERT_EQ(result->kind, SEMTY_INT);
   return 1;
 }
 REGISTER_TEST(test_trans_expr_binop_eq_strings);
 
 int test_trans_expr_if_no_else() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   expr_t *e = make_if_expr(make_int_expr(1), make_int_expr(2), NULL);
-  semty_t *result = trans_expr(venv, tenv, e);
+  semty_t *result = trans_expr(e);
   ASSERT_EQ(result->kind, SEMTY_INT);
   return 1;
 }
 REGISTER_TEST(test_trans_expr_if_no_else);
 
 int test_trans_expr_if_with_else() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   expr_t *e = make_if_expr(make_int_expr(1), make_int_expr(2), make_int_expr(3));
-  semty_t *result = trans_expr(venv, tenv, e);
+  semty_t *result = trans_expr(e);
   ASSERT_EQ(result->kind, SEMTY_INT);
   return 1;
 }
 REGISTER_TEST(test_trans_expr_if_with_else);
 
 int test_trans_expr_while() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   expr_t *e = make_while_expr(make_int_expr(1), make_int_expr(0));
-  semty_t *result = trans_expr(venv, tenv, e);
+  semty_t *result = trans_expr(e);
   ASSERT_EQ(result->kind, SEMTY_VOID);
   return 1;
 }
 REGISTER_TEST(test_trans_expr_while);
 
 int test_trans_expr_for() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   expr_t *e = make_for_expr(make_int_expr(0), make_int_expr(10), make_int_expr(0));
-  semty_t *result = trans_expr(venv, tenv, e);
+  semty_t *result = trans_expr(e);
   ASSERT_EQ(result->kind, SEMTY_VOID);
   return 1;
 }
 REGISTER_TEST(test_trans_expr_for);
 
 int test_trans_expr_seq() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   expr_list_t *seq = make_expr_list(make_int_expr(1),
                      make_expr_list(make_string_expr("x"), NULL));
   expr_t *e = make_seq_expr(seq);
-  semty_t *result = trans_expr(venv, tenv, e);
+  semty_t *result = trans_expr(e);
   ASSERT_EQ(result->kind, SEMTY_STRING);
   return 1;
 }
 REGISTER_TEST(test_trans_expr_seq);
 
 int test_trans_expr_call_no_args() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   dec_t *d = make_func_dec("f", NULL, "int");
-  trans_dec_header(venv, tenv, d);
-  trans_dec(venv, tenv, d);
+  trans_dec_header(d);
+  trans_dec(d);
   expr_t *e = make_call_expr("f", NULL);
-  semty_t *result = trans_expr(venv, tenv, e);
+  semty_t *result = trans_expr(e);
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_INT);
   return 1;
@@ -522,15 +522,15 @@ int test_trans_expr_call_no_args() {
 REGISTER_TEST(test_trans_expr_call_no_args);
 
 int test_trans_expr_call_with_args() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   param_list_t *params = make_param("x", "int", NULL);
   dec_t *d = make_func_dec("f", params, "string");
-  trans_dec_header(venv, tenv, d);
-  trans_dec(venv, tenv, d);
+  trans_dec_header(d);
+  trans_dec(d);
   expr_list_t *args = make_expr_list(make_int_expr(1), NULL);
   expr_t *e = make_call_expr("f", args);
-  semty_t *result = trans_expr(venv, tenv, e);
+  semty_t *result = trans_expr(e);
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_STRING);
   return 1;
@@ -538,11 +538,11 @@ int test_trans_expr_call_with_args() {
 REGISTER_TEST(test_trans_expr_call_with_args);
 
 int test_trans_expr_array() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
-  trans_dec(venv, tenv, make_type_dec("intarr", make_array_ty("int")));
+  base_tenv();
+  base_venv();
+  trans_dec(make_type_dec("intarr", make_array_ty("int")));
   expr_t *e = make_array_expr("intarr", make_int_expr(10), make_int_expr(0));
-  semty_t *result = trans_expr(venv, tenv, e);
+  semty_t *result = trans_expr(e);
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_ARRAY);
   ASSERT_EQ(result->array->kind, SEMTY_INT);
@@ -551,14 +551,14 @@ int test_trans_expr_array() {
 REGISTER_TEST(test_trans_expr_array);
 
 int test_trans_expr_record() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   param_list_t *fields = make_param("x", "int", make_param("s", "string", NULL));
-  trans_dec(venv, tenv, make_type_dec("point", make_record_ty(fields)));
+  trans_dec(make_type_dec("point", make_record_ty(fields)));
   field_list_t *flist = make_field_list("s", make_string_expr("hi"),
                         make_field_list("x", make_int_expr(1), NULL));
   expr_t *e = make_record_expr("point", flist);
-  semty_t *result = trans_expr(venv, tenv, e);
+  semty_t *result = trans_expr(e);
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_RECORD);
   return 1;
@@ -593,7 +593,7 @@ static expr_t *make_index_expr(expr_t *array, expr_t *index) {
   return e;
 }
 
-static void insert_var(symtab_t *venv, char *name, semty_t *ty) {
+static void insert_var(char *name, semty_t *ty) {
   env_entry_t *e = malloc(sizeof(env_entry_t));
   e->kind = ENV_VAR;
   e->var  = ty;
@@ -603,11 +603,11 @@ static void insert_var(symtab_t *venv, char *name, semty_t *ty) {
 /* --- trans_var tests --- */
 
 int test_trans_var_id() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   semty_t *int_ty = symtab_lookup(tenv, "int");
-  insert_var(venv, "x", int_ty);
-  semty_t *result = trans_var(venv, tenv, make_id_expr("x"));
+  insert_var("x", int_ty);
+  semty_t *result = trans_var(make_id_expr("x"));
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_INT);
   return 1;
@@ -615,34 +615,34 @@ int test_trans_var_id() {
 REGISTER_TEST(test_trans_var_id);
 
 int test_trans_var_id_undefined() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
-  semty_t *result = trans_var(venv, tenv, make_id_expr("x"));
+  base_tenv();
+  base_venv();
+  semty_t *result = trans_var(make_id_expr("x"));
   ASSERT_EQ(result, NULL);
   return 1;
 }
 REGISTER_TEST(test_trans_var_id_undefined);
 
 int test_trans_var_id_function() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   dec_t *fd = make_func_dec("f", NULL, "int");
-  trans_dec_header(venv, tenv, fd);
-  trans_dec(venv, tenv, fd);
-  semty_t *result = trans_var(venv, tenv, make_id_expr("f"));
+  trans_dec_header(fd);
+  trans_dec(fd);
+  semty_t *result = trans_var(make_id_expr("f"));
   ASSERT_EQ(result, NULL);
   return 1;
 }
 REGISTER_TEST(test_trans_var_id_function);
 
 int test_trans_var_field() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   param_list_t *fields = make_param("x", "int", make_param("s", "string", NULL));
-  trans_dec(venv, tenv, make_type_dec("point", make_record_ty(fields)));
+  trans_dec(make_type_dec("point", make_record_ty(fields)));
   semty_t *point_ty = symtab_lookup(tenv, "point");
-  insert_var(venv, "p", point_ty);
-  semty_t *result = trans_var(venv, tenv, make_field_expr(make_id_expr("p"), "x"));
+  insert_var("p", point_ty);
+  semty_t *result = trans_var(make_field_expr(make_id_expr("p"), "x"));
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_INT);
   return 1;
@@ -650,25 +650,25 @@ int test_trans_var_field() {
 REGISTER_TEST(test_trans_var_field);
 
 int test_trans_var_field_unknown() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   param_list_t *fields = make_param("x", "int", NULL);
-  trans_dec(venv, tenv, make_type_dec("point", make_record_ty(fields)));
+  trans_dec(make_type_dec("point", make_record_ty(fields)));
   semty_t *point_ty = symtab_lookup(tenv, "point");
-  insert_var(venv, "p", point_ty);
-  semty_t *result = trans_var(venv, tenv, make_field_expr(make_id_expr("p"), "y"));
+  insert_var("p", point_ty);
+  semty_t *result = trans_var(make_field_expr(make_id_expr("p"), "y"));
   ASSERT_EQ(result, NULL);
   return 1;
 }
 REGISTER_TEST(test_trans_var_field_unknown);
 
 int test_trans_var_index() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
-  trans_dec(venv, tenv, make_type_dec("intarr", make_array_ty("int")));
+  base_tenv();
+  base_venv();
+  trans_dec(make_type_dec("intarr", make_array_ty("int")));
   semty_t *arr_ty = symtab_lookup(tenv, "intarr");
-  insert_var(venv, "a", arr_ty);
-  semty_t *result = trans_var(venv, tenv, make_index_expr(make_id_expr("a"), make_int_expr(0)));
+  insert_var("a", arr_ty);
+  semty_t *result = trans_var(make_index_expr(make_id_expr("a"), make_int_expr(0)));
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_INT);
   return 1;
@@ -676,34 +676,34 @@ int test_trans_var_index() {
 REGISTER_TEST(test_trans_var_index);
 
 int test_trans_var_index_non_int() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
-  trans_dec(venv, tenv, make_type_dec("intarr", make_array_ty("int")));
+  base_tenv();
+  base_venv();
+  trans_dec(make_type_dec("intarr", make_array_ty("int")));
   semty_t *arr_ty = symtab_lookup(tenv, "intarr");
-  insert_var(venv, "a", arr_ty);
-  semty_t *result = trans_var(venv, tenv, make_index_expr(make_id_expr("a"), make_string_expr("bad")));
+  insert_var("a", arr_ty);
+  semty_t *result = trans_var(make_index_expr(make_id_expr("a"), make_string_expr("bad")));
   ASSERT_EQ(result, NULL);
   return 1;
 }
 REGISTER_TEST(test_trans_var_index_non_int);
 
 int test_trans_var_field_on_non_record() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   semty_t *int_ty = symtab_lookup(tenv, "int");
-  insert_var(venv, "x", int_ty);
-  semty_t *result = trans_var(venv, tenv, make_field_expr(make_id_expr("x"), "foo"));
+  insert_var("x", int_ty);
+  semty_t *result = trans_var(make_field_expr(make_id_expr("x"), "foo"));
   ASSERT_EQ(result, NULL);
   return 1;
 }
 REGISTER_TEST(test_trans_var_field_on_non_record);
 
 int test_trans_var_index_on_non_array() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   semty_t *int_ty = symtab_lookup(tenv, "int");
-  insert_var(venv, "x", int_ty);
-  semty_t *result = trans_var(venv, tenv, make_index_expr(make_id_expr("x"), make_int_expr(0)));
+  insert_var("x", int_ty);
+  semty_t *result = trans_var(make_index_expr(make_id_expr("x"), make_int_expr(0)));
   ASSERT_EQ(result, NULL);
   return 1;
 }
@@ -712,14 +712,14 @@ REGISTER_TEST(test_trans_var_index_on_non_array);
 /* --- trans_dec: DEC_VAR --- */
 
 int test_trans_dec_var_no_annotation() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   dec_t *d = malloc(sizeof(dec_t));
   d->kind          = DEC_VAR;
   d->var.id        = "x";
   d->var.type_name = NULL;
   d->var.init      = make_int_expr(5);
-  trans_dec(venv, tenv, d);
+  trans_dec(d);
   env_entry_t *entry = symtab_lookup(venv, "x");
   ASSERT(entry != NULL);
   ASSERT_EQ(entry->kind, ENV_VAR);
@@ -729,14 +729,14 @@ int test_trans_dec_var_no_annotation() {
 REGISTER_TEST(test_trans_dec_var_no_annotation);
 
 int test_trans_dec_var_with_annotation() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   dec_t *d = malloc(sizeof(dec_t));
   d->kind          = DEC_VAR;
   d->var.id        = "x";
   d->var.type_name = "int";
   d->var.init      = make_int_expr(5);
-  trans_dec(venv, tenv, d);
+  trans_dec(d);
   env_entry_t *entry = symtab_lookup(venv, "x");
   ASSERT(entry != NULL);
   ASSERT_EQ(entry->var->kind, SEMTY_INT);
@@ -745,14 +745,14 @@ int test_trans_dec_var_with_annotation() {
 REGISTER_TEST(test_trans_dec_var_with_annotation);
 
 int test_trans_dec_var_string() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   dec_t *d = malloc(sizeof(dec_t));
   d->kind          = DEC_VAR;
   d->var.id        = "s";
   d->var.type_name = NULL;
   d->var.init      = make_string_expr("hello");
-  trans_dec(venv, tenv, d);
+  trans_dec(d);
   env_entry_t *entry = symtab_lookup(venv, "s");
   ASSERT(entry != NULL);
   ASSERT_EQ(entry->var->kind, SEMTY_STRING);
@@ -764,8 +764,8 @@ REGISTER_TEST(test_trans_dec_var_string);
 
 // function fib(n: int): int = if n <= 1 then n else fib(n-1) + fib(n-2)
 int test_trans_dec_func_recursive() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
 
   expr_t *call1 = make_call_expr("fib",
     make_expr_list(make_binop_expr(OP_SUB, make_id_expr("n"), make_int_expr(1)), NULL));
@@ -783,8 +783,8 @@ int test_trans_dec_func_recursive() {
   d->func.args      = make_param("n", "int", NULL);
   d->func.body      = body;
 
-  trans_dec_header(venv, tenv, d);
-  trans_dec(venv, tenv, d);
+  trans_dec_header(d);
+  trans_dec(d);
   env_entry_t *entry = symtab_lookup(venv, "fib");
   ASSERT(entry != NULL);
   ASSERT_EQ(entry->kind, ENV_FUNC);
@@ -797,8 +797,8 @@ REGISTER_TEST(test_trans_dec_func_recursive);
 // function isEven(n: int): int = if n = 0 then 1 else isOdd(n-1)
 // function isOdd(n: int): int  = if n = 0 then 0 else isEven(n-1)
 int test_trans_dec_func_mutually_recursive() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
 
   expr_t *even_body = make_if_expr(
     make_binop_expr(OP_EQ, make_id_expr("n"), make_int_expr(0)),
@@ -826,10 +826,10 @@ int test_trans_dec_func_mutually_recursive() {
   d_odd->func.args      = make_param("n", "int", NULL);
   d_odd->func.body      = odd_body;
 
-  trans_dec_header(venv, tenv, d_even);
-  trans_dec_header(venv, tenv, d_odd);
-  trans_dec(venv, tenv, d_even);
-  trans_dec(venv, tenv, d_odd);
+  trans_dec_header(d_even);
+  trans_dec_header(d_odd);
+  trans_dec(d_even);
+  trans_dec(d_odd);
 
   env_entry_t *even_entry = symtab_lookup(venv, "isEven");
   env_entry_t *odd_entry  = symtab_lookup(venv, "isOdd");
@@ -842,17 +842,17 @@ int test_trans_dec_func_mutually_recursive() {
 REGISTER_TEST(test_trans_dec_func_mutually_recursive);
 
 int test_trans_expr_call_nil_to_record_param() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
   param_list_t *fields = make_param("x", "int", NULL);
-  trans_dec(venv, tenv, make_type_dec("point", make_record_ty(fields)));
+  trans_dec(make_type_dec("point", make_record_ty(fields)));
   param_list_t *params = make_param("p", "point", NULL);
   dec_t *d = make_func_dec("f", params, "int");
-  trans_dec_header(venv, tenv, d);
-  trans_dec(venv, tenv, d);
+  trans_dec_header(d);
+  trans_dec(d);
   expr_list_t *args = make_expr_list(make_nil_expr(), NULL);
   expr_t *e = make_call_expr("f", args);
-  semty_t *result = trans_expr(venv, tenv, e);
+  semty_t *result = trans_expr(e);
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_INT);
   return 1;
@@ -860,8 +860,8 @@ int test_trans_expr_call_nil_to_record_param() {
 REGISTER_TEST(test_trans_expr_call_nil_to_record_param);
 
 int test_trans_expr_call_nil_to_mutually_recursive_record_param() {
-  symtab_t *tenv = base_tenv();
-  symtab_t *venv = base_venv();
+  base_tenv();
+  base_venv();
 
   // type list = { val: int, next: tree }
   dec_t *d_list = make_type_dec("list",
@@ -871,22 +871,22 @@ int test_trans_expr_call_nil_to_mutually_recursive_record_param() {
     make_record_ty(make_param("val", "list", make_param("right", "tree", NULL))));
 
   // insert SEMTY_NAME placeholders for both types
-  trans_dec_header(venv, tenv, d_list);
-  trans_dec_header(venv, tenv, d_tree);
+  trans_dec_header(d_list);
+  trans_dec_header(d_tree);
 
   // function isOdd(l: list): int — param type will be SEMTY_NAME at this point
   dec_t *d_func = make_func_dec("isOdd", make_param("l", "list", NULL), "int");
-  trans_dec_header(venv, tenv, d_func);
+  trans_dec_header(d_func);
 
   // resolve types
-  trans_dec(venv, tenv, d_list);
-  trans_dec(venv, tenv, d_tree);
-  trans_dec(venv, tenv, d_func);
+  trans_dec(d_list);
+  trans_dec(d_tree);
+  trans_dec(d_func);
 
   // isOdd(nil) should be valid since list is a record type
   expr_list_t *args = make_expr_list(make_nil_expr(), NULL);
   expr_t *e = make_call_expr("isOdd", args);
-  semty_t *result = trans_expr(venv, tenv, e);
+  semty_t *result = trans_expr(e);
   ASSERT(result != NULL);
   ASSERT_EQ(result->kind, SEMTY_INT);
   return 1;

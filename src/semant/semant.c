@@ -3,6 +3,9 @@
 #include <string.h>
 #include "semant.h"
 
+symtab_t *venv;
+symtab_t *tenv;
+
 static env_entry_t *make_func_entry(param_ty_t *params, semty_t *ret) {
   env_entry_t *e = malloc(sizeof(env_entry_t));
   e->kind        = ENV_FUNC;
@@ -19,7 +22,7 @@ static param_ty_t *make_param_ty(semty_t *type, param_ty_t *next) {
 }
 
 symtab_t *semant_base_tenv() {
-  symtab_t *tenv = symtab_new(64);
+  tenv = symtab_new(64);
 
   semty_t *int_ty    = malloc(sizeof(semty_t));
   semty_t *string_ty = malloc(sizeof(semty_t));
@@ -35,7 +38,8 @@ symtab_t *semant_base_tenv() {
   return tenv;
 }
 symtab_t *semant_base_venv(symtab_t *tenv) {
-  symtab_t *venv = symtab_new(64);
+  venv = symtab_new(64);
+
   semty_t *ty_int    = symtab_lookup(tenv, "int");
   semty_t *ty_string = symtab_lookup(tenv, "string");
   semty_t *ty_void   = malloc(sizeof(semty_t));
@@ -107,7 +111,7 @@ static semty_t *actual_ty(symtab_t *tenv, semty_t *ty) {
   return ty;
 }
 
-semty_t *trans_ty(symtab_t *tenv, ty_t *ty) {
+semty_t *trans_ty(ty_t *ty) {
   switch (ty->kind) {
     case TY_NAME:
       return (semty_t *)symtab_lookup(tenv, ty->alias);
@@ -138,7 +142,7 @@ semty_t *trans_ty(symtab_t *tenv, ty_t *ty) {
   };
 }
 
-semty_t *trans_var(symtab_t *venv, symtab_t *tenv, expr_t *e) {
+semty_t *trans_var(expr_t *e) {
   switch (e->kind) {
     case EXPR_ID: {
       env_entry_t *entry = symtab_lookup(venv, e->id);
@@ -153,7 +157,7 @@ semty_t *trans_var(symtab_t *venv, symtab_t *tenv, expr_t *e) {
       return entry->var;
     }
     case EXPR_FIELD: {
-      semty_t *record_ty = trans_var(venv, tenv, e->field_.record);
+      semty_t *record_ty = trans_var(e->field_.record);
       if (record_ty->kind != SEMTY_RECORD) {
         fprintf(stderr, "error: field access is only allowed with record type\n");
         return NULL;
@@ -173,14 +177,12 @@ semty_t *trans_var(symtab_t *venv, symtab_t *tenv, expr_t *e) {
       return field_ty->type;
     }
     case EXPR_INDEX: {
-      semty_t *array_ty = trans_var(venv, tenv, e->index_.array);
+      semty_t *array_ty = trans_var(e->index_.array);
       if (array_ty->kind != SEMTY_ARRAY) {
         fprintf(stderr, "error: cannot access index of non-array variable\n");
         return NULL;
       }
-      semty_t *index_ty = trans_expr(venv, tenv, e->index_.index);
-      if (!array_ty) {
-      }
+      semty_t *index_ty = trans_expr(e->index_.index);
       if (index_ty->kind != SEMTY_INT) {
         fprintf(stderr, "error: cannot access non-integer array index\n");
         return NULL;
@@ -191,7 +193,7 @@ semty_t *trans_var(symtab_t *venv, symtab_t *tenv, expr_t *e) {
   }
 }
 
-void trans_dec_header(symtab_t *venv, symtab_t *tenv, dec_t *dec) {
+void trans_dec_header(dec_t *dec) {
   switch (dec->kind) {
     case DEC_FUNC: {
       env_entry_t *entry = malloc(sizeof(env_entry_t));
@@ -223,7 +225,7 @@ void trans_dec_header(symtab_t *venv, symtab_t *tenv, dec_t *dec) {
   }
 }
 
-semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
+semty_t *trans_expr(expr_t *e) {
   semty_t *s = malloc(sizeof(semty_t));
   switch (e->kind) {
     case EXPR_INT:
@@ -238,11 +240,11 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
     case EXPR_ID:
     case EXPR_FIELD:
     case EXPR_INDEX:
-      s = trans_var(venv, tenv, e);
+      s = trans_var(e);
       return s;
     case EXPR_ASSIGN: {
       env_entry_t *rhs = symtab_lookup(venv, e->assign.var);
-      semty_t *lhs = trans_expr(venv, tenv, e->assign.rhs);
+      semty_t *lhs = trans_expr(e->assign.rhs);
       s->kind = SEMTY_VOID;
       if (rhs->kind != ENV_VAR) {
         fprintf(stderr, "error: cannot assign to function expr\n");
@@ -258,16 +260,16 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
       return s;
     }
     case EXPR_IF: {
-      semty_t *cond = trans_expr(venv, tenv, e->if_.cond);
+      semty_t *cond = trans_expr(e->if_.cond);
       if (cond->kind != SEMTY_INT) {
         fprintf(stderr, "error: if expr condition must be int\n");
         return NULL;
       }
-      semty_t *then = trans_expr(venv, tenv, e->if_.then);
+      semty_t *then = trans_expr(e->if_.then);
       if (!e->if_.else_) {
         return then;
       }
-      semty_t *else_ = trans_expr(venv, tenv, e->if_.else_);
+      semty_t *else_ = trans_expr(e->if_.else_);
       if (!else_ && !then) {
         fprintf(stderr, "error: cannot infer return type, add a return type annotation");
         return NULL;
@@ -282,18 +284,18 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
       return then;
     }
     case EXPR_WHILE: {
-      semty_t *cond = trans_expr(venv, tenv, e->while_.cond);
+      semty_t *cond = trans_expr(e->while_.cond);
       if (cond->kind != SEMTY_INT) {
         fprintf(stderr, "error: while expr condition must be int\n");
         return NULL;
       }
-      trans_expr(venv, tenv, e->while_.body);
+      trans_expr(e->while_.body);
       s->kind = SEMTY_VOID;
       return s;
     }
     case EXPR_FOR: {
-      semty_t *init = trans_expr(venv, tenv, e->for_.init);
-      semty_t *to   = trans_expr(venv, tenv, e->for_.to);
+      semty_t *init = trans_expr(e->for_.init);
+      semty_t *to   = trans_expr(e->for_.to);
       if (init->kind != to->kind) {
         fprintf(stderr, "error: for expr type mismatch\n");
         return NULL;
@@ -319,7 +321,7 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
       param_ty_t *p = f->func.params;
       expr_list_t *a = e->call.arg_list;
       while (p) {
-        semty_t *arg_ty  = trans_expr(venv, tenv, a->expr);
+        semty_t *arg_ty  = trans_expr(a->expr);
         semty_t *param_ty = actual_ty(tenv, p->type);
         if (param_ty->kind != arg_ty->kind) {
           if (!(param_ty->kind == SEMTY_RECORD && arg_ty->kind == SEMTY_NIL)) {
@@ -335,28 +337,28 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
     case EXPR_SEQ: {
       expr_list_t *seq = e->seq;
       while (seq->next) {
-        trans_expr(venv, tenv, seq->expr);
+        trans_expr(seq->expr);
         seq = seq->next;
       }
-      return trans_expr(venv, tenv, seq->expr);
+      return trans_expr(seq->expr);
     }
     case EXPR_LET: {
       symtab_enter_scope(venv);
       symtab_enter_scope(tenv);
       dec_list_t *d = e->let.dec_list;
       while (d) {
-        trans_dec_header(venv, tenv, d->dec);
+        trans_dec_header(d->dec);
         d = d->next;
       }
       d = e->let.dec_list;
       while (d) {
-        trans_dec(venv, tenv, d->dec);
+        trans_dec(d->dec);
         d = d->next;
       }
       semty_t *result = NULL;
       expr_list_t *l = e->let.body;
       while (l) {
-        result = trans_expr(venv, tenv, l->expr);
+        result = trans_expr(l->expr);
         l = l->next;
       }
       symtab_exit_scope(venv);
@@ -364,8 +366,8 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
       return result;
     }
     case EXPR_BINOP: {
-      semty_t *l = trans_expr(venv, tenv, e->binop.left);
-      semty_t *r = trans_expr(venv, tenv, e->binop.right);
+      semty_t *l = trans_expr(e->binop.left);
+      semty_t *r = trans_expr(e->binop.right);
       semty_t *res = malloc(sizeof(semty_t));
 
       switch (e->binop.op) {
@@ -419,7 +421,7 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
           field_ty = field_ty->next;
         }
 
-        semty_t *s = trans_expr(venv, tenv, field->val);
+        semty_t *s = trans_expr(field->val);
 
         if (s->kind == SEMTY_NIL) {
           field = field->next;
@@ -437,8 +439,8 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
     }
     case EXPR_ARRAY: {
       semty_t *semty = symtab_lookup(tenv, e->array.type_name);
-      semty_t *size  = trans_expr(venv, tenv, e->array.size);
-      semty_t *init  = trans_expr(venv, tenv, e->array.init);
+      semty_t *size  = trans_expr(e->array.size);
+      semty_t *init  = trans_expr(e->array.init);
 
       if (semty->kind != SEMTY_ARRAY) {
         fprintf(stderr, "error: array type expected\n");
@@ -455,7 +457,7 @@ semty_t *trans_expr(symtab_t *venv, symtab_t *tenv, expr_t *e) {
   }
 }
 
-void trans_dec(symtab_t *venv, symtab_t *tenv, dec_t *dec) {
+void trans_dec(dec_t *dec) {
   switch (dec->kind) {
     case DEC_FUNC: {
       env_entry_t *entry = symtab_lookup(venv, dec->func.id);
@@ -472,7 +474,7 @@ void trans_dec(symtab_t *venv, symtab_t *tenv, dec_t *dec) {
         pty = pty->next;
       }
 
-      semty_t *body_ty = dec->func.body ? trans_expr(venv, tenv, dec->func.body) : NULL;
+      semty_t *body_ty = dec->func.body ? trans_expr(dec->func.body) : NULL;
       symtab_exit_scope(venv);
 
       if (entry->func.ret) {
@@ -491,7 +493,7 @@ void trans_dec(symtab_t *venv, symtab_t *tenv, dec_t *dec) {
       env_entry_t *s = malloc(sizeof(env_entry_t));
       s->kind = ENV_VAR;
 
-      semty_t *init_ty = trans_expr(venv, tenv, dec->var.init);
+      semty_t *init_ty = trans_expr(dec->var.init);
       if (dec->var.type_name) {
         semty_t *declared = symtab_lookup(tenv, dec->var.type_name);
         if (declared->kind != init_ty->kind) {
@@ -504,7 +506,7 @@ void trans_dec(symtab_t *venv, symtab_t *tenv, dec_t *dec) {
       return;
     }
     case DEC_TYPE: {
-      semty_t *ty = trans_ty(tenv, dec->type.ty);
+      semty_t *ty = trans_ty(dec->type.ty);
       symtab_insert(tenv, dec->type.name, ty);
       return;
     }
