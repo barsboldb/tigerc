@@ -49,14 +49,18 @@ static tr_exp_t *tr_cx(cx_t cx) {
   return e;
 }
 
-static tree_expr_t *frame_exp(access_t *a) {
+static tree_expr_t *frame_exp(access_t *a, frame_t *frame) {
   if (!a) return NULL;
 
-  if (a->kind == ACCESS_REG) {
+  if (a->kind == ACCESS_REG)
     return tree_temp(a->reg);
-  } else {
-    return tree_mem(tree_binop(TREE_ADD, tree_temp(frame_fp()), tree_const(a->offset)));
-  }
+
+  int hops = frame->depth - a->depth;
+  tree_expr_t *fp = tree_temp(frame_fp());
+  for (int i = 0; i < hops; i++)
+    fp = tree_mem(tree_binop(TREE_ADD, fp, tree_const(-WORD_SIZE)));
+
+  return tree_mem(tree_binop(TREE_ADD, fp, tree_const(a->offset)));
 }
 
 tree_expr_t *un_ex(tr_exp_t *e) {
@@ -207,15 +211,32 @@ tr_exp_t *tr_expr(symtab_t *aenv, frame_t *frame, expr_t *e) {
     }
     case EXPR_CALL: {
       label_t l = label_named(e->call.id);
+      env_entry_t *callee = symtab_lookup(venv, e->call.id);
+      int callee_depth = callee->func.depth;
+      int pass_sl = callee_depth > 0;
+
       expr_list_t *args = e->call.arg_list;
       int n;
       for (n = 0; args; args = args->next, n++);
-      tree_expr_t **actuals = malloc(n * sizeof(tree_expr_t *));
+      
+      int total = pass_sl ? n + 1 : n;
+      tree_expr_t **actuals = malloc(total * sizeof(tree_expr_t *));
+
+      int base = 0;
+      if (pass_sl) {
+        int hops = frame->depth - (callee_depth - 1);
+        tree_expr_t *sl = tree_temp(frame_fp());
+        for (int i = 0; i < hops; i++)
+          sl = tree_mem(tree_binop(TREE_ADD, sl, tree_const(-WORD_SIZE)));
+        actuals[0] = sl;
+        base = 1;
+      }
+
       args = e->call.arg_list;
       for (int i = 0; i < n; i++, args = args->next) {
-        actuals[i] = un_ex(tr_expr(aenv, frame, args->expr));
+        actuals[base + i] = un_ex(tr_expr(aenv, frame, args->expr));
       }
-      return tr_ex(tree_call(tree_name(l), actuals, n));
+      return tr_ex(tree_call(tree_name(l), actuals, total));
     }
     case EXPR_SEQ: {
       expr_list_t *list = e->seq;
@@ -238,7 +259,7 @@ tr_exp_t *tr_expr(symtab_t *aenv, frame_t *frame, expr_t *e) {
     case EXPR_ASSIGN: {
       tr_exp_t *rhs = tr_expr(aenv, frame, e->assign.rhs);
       access_t *ac = symtab_lookup(aenv, e->assign.var);
-      return tr_nx(tree_move(frame_exp(ac), un_ex(rhs)));
+      return tr_nx(tree_move(frame_exp(ac, frame), un_ex(rhs)));
     }
     case EXPR_LET: {
       symtab_enter_scope(aenv);
@@ -346,7 +367,7 @@ tr_exp_t *tr_expr(symtab_t *aenv, frame_t *frame, expr_t *e) {
       label_t t_label   = label_new();
       label_t d_label   = label_new();
       label_t b_label   = label_new();
-      tree_stmt_t *init = tree_move(frame_exp(acc), un_ex(tr_expr(aenv, frame, e->for_.init)));
+      tree_stmt_t *init = tree_move(frame_exp(acc, frame), un_ex(tr_expr(aenv, frame, e->for_.init)));
       temp_t limit_temp = temp_new();
       tree_stmt_t *limit = tree_move(tree_temp(limit_temp), un_ex(tr_expr(aenv, frame, e->for_.to)));
       tree_stmt_t *body = un_nx(tr_expr(aenv, frame, e->for_.body));
@@ -362,15 +383,15 @@ tr_exp_t *tr_expr(symtab_t *aenv, frame_t *frame, expr_t *e) {
             tree_seq(
               tree_label(t_label),
               tree_seq(
-                tree_cjump(TREE_LE, frame_exp(acc), tree_temp(limit_temp), b_label, d_label),
+                tree_cjump(TREE_LE, frame_exp(acc, frame), tree_temp(limit_temp), b_label, d_label),
                 tree_seq(
                   tree_label(b_label),
                   tree_seq(
                     body,
                     tree_seq(
                       tree_move(
-                        frame_exp(acc),
-                        tree_binop(TREE_ADD, frame_exp(acc), tree_const(1))
+                        frame_exp(acc, frame),
+                        tree_binop(TREE_ADD, frame_exp(acc, frame), tree_const(1))
                       ),
                       tree_seq(
                         tree_jump(tree_name(t_label), dests, 1),
@@ -431,7 +452,7 @@ tr_exp_t *tr_dec(symtab_t *aenv, frame_t *frame, dec_t *d) {
       symtab_insert(aenv, d->var.id, access);
       return tr_nx(
         tree_move(
-          frame_exp(access),
+          frame_exp(access, frame),
           un_ex(init)
         )
       );
@@ -445,12 +466,15 @@ tr_exp_t *tr_dec(symtab_t *aenv, frame_t *frame, dec_t *d) {
       for (int i = 0; i < n; p = p->next, i++) {
         escapes[i] = p->param->escape;
       }
-      frame_t *f = frame_new(d->func.id, escapes, n);
+      frame_t *f = frame_new(d->func.id, escapes, n, frame->depth + 1);
+      env_entry_t *entry = symtab_lookup(venv, d->func.id);
+      entry->func.depth = f->depth;
       free(escapes);
       symtab_enter_scope(aenv);
       p = d->func.args;
+      int base = f->depth > 0 ? 1 : 0;
       for (int i = 0; i < n; p = p->next, i++) {
-        symtab_insert(aenv, p->param->name, &f->formals[i]);
+        symtab_insert(aenv, p->param->name, &f->formals[base + i]);
       }
       tr_exp_t *body = tr_expr(aenv, f, d->func.body);
 
@@ -465,7 +489,7 @@ tr_exp_t *tr_var(symtab_t *aenv, frame_t *frame, expr_t *e) {
   switch (e->kind) {
     case EXPR_ID: {
       access_t *a = symtab_lookup(aenv, e->id);
-      return tr_ex(frame_exp(a));
+      return tr_ex(frame_exp(a, frame));
     }
     case EXPR_INDEX: {
       tree_expr_t *base = un_ex(tr_var(aenv, frame, e->index_.array));

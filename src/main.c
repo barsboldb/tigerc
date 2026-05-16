@@ -4,6 +4,8 @@
 #include "parser.h"
 #include "printer.h"
 #include "semant.h"
+#include "trans.h"
+#include "frame.h"
 #include "symtab.h"
 #include "types.h"
 
@@ -37,8 +39,8 @@ int main(int argc, char *argv[]) {
 
   printf("\n=== Semantic Analysis ===\n");
   symtab_t *tenv = semant_base_tenv();
-  symtab_t *venv = semant_base_venv(tenv);
-  semty_t  *ty   = trans_expr(venv, tenv, ast);
+  semant_base_venv(tenv);
+  semty_t *ty = trans_expr(ast);
 
   if (ty) {
     printf("type: ");
@@ -54,6 +56,13 @@ int main(int argc, char *argv[]) {
   } else {
     printf("type: (error or unknown)\n");
   }
+
+  printf("\n=== Translation ===\n");
+  symtab_t *aenv = symtab_new(64);
+  symtab_enter_scope(aenv);
+  frame_t *top = frame_new("_main", NULL, 0, 0);
+  tr_expr(aenv, top, ast);
+  symtab_exit_scope(aenv);
 
   free(src);
   return 0;
