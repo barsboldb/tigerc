@@ -254,19 +254,17 @@ semty_t *trans_expr(expr_t *e) {
       e->ty = s;
       return s;
     case EXPR_ASSIGN: {
-      env_entry_t *rhs = symtab_lookup(venv, e->assign.var);
+      semty_t *rhs = trans_var(e->assign.lhs);
       semty_t *lhs = trans_expr(e->assign.rhs);
       s->kind = SEMTY_VOID;
-      if (rhs->kind != ENV_VAR) {
-        fprintf(stderr, "error: cannot assign to function expr\n");
-        return NULL;
-      }
-      if (lhs->kind == SEMTY_NIL && rhs->var->kind == SEMTY_RECORD) {
+      if (!lhs || !rhs) return NULL;
+      s->kind = SEMTY_VOID;
+      if (rhs->kind != SEMTY_NIL && lhs->kind == SEMTY_RECORD) {
+        e->ty = s;
         return s;
       }
-      if (rhs->var->kind != lhs->kind) {
-        fprintf(stderr, "error: type mismatch in assign '%s'\n", e->assign.var);
-        return NULL;
+      if (lhs->kind != rhs->kind) {
+        fprintf(stderr, "error: type mismatch in assignment\n");
       }
       e->ty = s;
       return s;

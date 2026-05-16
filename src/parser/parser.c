@@ -404,16 +404,6 @@ static expr_t *parse_let(parser_t *p) {
   return e;
 }
 
-static expr_t *parse_assign(parser_t *p) {
-  expr_t *e = make_expr(EXPR_ASSIGN, p->current.line, p->current.col);
-  e->assign.var = p->current.str_val;
-  if (expect(p, TOK_ID) < 0) { return NULL; }
-  if (expect(p, TOK_ASSIGN) < 0) { return NULL; }
-  e->assign.rhs = parse_expr(p);
-
-  return e;
-}
-
 static expr_t *parse_call(parser_t *p) {
   expr_t *e = make_expr(EXPR_CALL, p->current.line, p->current.col);
   e->call.id = p->current.str_val;
@@ -464,6 +454,13 @@ static expr_t *parse_lvalue(parser_t *p) {
       idx->index_.index = size_or_idx;
       e = idx;
     }
+  }
+  if (p->current.kind == TOK_ASSIGN) {
+    advance(p);
+    expr_t *asgn = make_expr(EXPR_ASSIGN, e->line, e->col);
+    asgn->assign.lhs = e;
+    asgn->assign.rhs = parse_expr(p);
+    return asgn;
   }
   return e;
 }
@@ -578,7 +575,6 @@ static expr_t *parse_primary(parser_t *p) {
       return make_binop(OP_SUB, zero, operand, tok.line, tok.col);
     }
     case TOK_ID:
-      if (p->next.kind == TOK_ASSIGN)   return parse_assign(p);
       if (p->next.kind == TOK_LPAREN)   return parse_call(p);
       if (p->next.kind == TOK_LBRACE)   return parse_record(p);
       return parse_lvalue(p);

@@ -30,8 +30,7 @@ static void escape_expr(symtab_t *escenv, expr_t *e, int depth) {
       escape_expr(escenv, e->binop.right, depth);
       break;
     case EXPR_ASSIGN: {
-      esc_entry_t *entry = symtab_lookup(escenv, e->assign.var);
-      if (entry && entry->depth < depth) *entry->escape = 1;
+      escape_expr(escenv, e->assign.lhs, depth);
       escape_expr(escenv, e->assign.rhs, depth);
       break;
     }

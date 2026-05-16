@@ -153,7 +153,7 @@ typedef struct expr_t {
     } for_;
 
     struct {
-      char          *var;
+      struct expr_t *lhs;
       struct expr_t *rhs;
     } assign;
 

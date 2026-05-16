@@ -65,6 +65,7 @@ static tree_expr_t *frame_exp(access_t *a, frame_t *frame) {
 }
 
 tree_expr_t *un_ex(tr_exp_t *e) {
+  assert(e);
   switch (e->kind) {
     case TR_EX: {
       return e->ex;
@@ -101,6 +102,7 @@ tree_expr_t *un_ex(tr_exp_t *e) {
 }
 
 tree_stmt_t *un_nx(tr_exp_t *e) {
+  assert(e);
   switch (e->kind) {
     case TR_EX: {
       return tree_exp(e->ex);
@@ -118,6 +120,7 @@ tree_stmt_t *un_nx(tr_exp_t *e) {
 }
 
 cx_t un_cx(tr_exp_t *e) {
+  assert(e);
   switch (e->kind) {
     case TR_EX: {
       tree_stmt_t *stm = tree_cjump(TREE_NE, e->ex, tree_const(0), 0, 0);
@@ -180,6 +183,7 @@ static tree_stmt_t *seq_append(tree_stmt_t *stmts, tree_stmt_t *s) {
 }
 
 tr_exp_t *tr_expr(symtab_t *aenv, frame_t *frame, expr_t *e) {
+  assert(e);
   switch (e->kind) {
     case EXPR_INT:
       return tr_ex(tree_const(e->int_val));
@@ -257,9 +261,9 @@ tr_exp_t *tr_expr(symtab_t *aenv, frame_t *frame, expr_t *e) {
     case EXPR_FIELD:
       return tr_var(aenv, frame, e);
     case EXPR_ASSIGN: {
-      tr_exp_t *rhs = tr_expr(aenv, frame, e->assign.rhs);
-      access_t *ac = symtab_lookup(aenv, e->assign.var);
-      return tr_nx(tree_move(frame_exp(ac, frame), un_ex(rhs)));
+      tree_expr_t *lhs = un_ex(tr_var(aenv, frame, e->assign.lhs));
+      tree_expr_t *rhs = un_ex(tr_expr(aenv, frame, e->assign.rhs));
+      return tr_nx(tree_move(lhs, rhs));
     }
     case EXPR_LET: {
       symtab_enter_scope(aenv);
@@ -442,6 +446,7 @@ tr_exp_t *tr_expr(symtab_t *aenv, frame_t *frame, expr_t *e) {
   }
 }
 tr_exp_t *tr_dec(symtab_t *aenv, frame_t *frame, dec_t *d) {
+  assert(d);
   switch (d->kind) {
     case DEC_TYPE: 
       return tr_nx(tree_exp(tree_const(0)));
@@ -484,6 +489,8 @@ tr_exp_t *tr_dec(symtab_t *aenv, frame_t *frame, dec_t *d) {
   }
 }
 tr_exp_t *tr_var(symtab_t *aenv, frame_t *frame, expr_t *e) {
+  assert(e);
+
   switch (e->kind) {
     case EXPR_ID: {
       access_t *a = symtab_lookup(aenv, e->id);
@@ -508,7 +515,7 @@ tr_exp_t *tr_var(symtab_t *aenv, frame_t *frame, expr_t *e) {
     }
     case EXPR_FIELD: {
       tr_exp_t *base = tr_var(aenv, frame, e->field_.record);
-      semty_t *ty = e->ty;
+      semty_t *ty = e->field_.record->ty;
       if (!ty || ty->kind != SEMTY_RECORD) {
         fprintf(stderr, "error: type error\n");
         return NULL;

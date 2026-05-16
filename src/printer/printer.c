@@ -77,7 +77,8 @@ void print_expr(expr_t *expr, int indent) {
 
     case EXPR_ASSIGN:
       print_indent(indent);
-      printf("ASSIGN %s :=\n", expr->assign.var);
+      printf("ASSIGN :=\n");
+      print_expr(expr->assign.lhs, indent + 1);
       print_expr(expr->assign.rhs, indent + 1);
       break;
 
