@@ -100,9 +100,9 @@ static expr_t *make_for(char *var, expr_t *init, expr_t *to, expr_t *body, int e
   return e;
 }
 
-static expr_t *make_assign(char *var, expr_t *rhs) {
+static expr_t *make_assign(expr_t *lhs, expr_t *rhs) {
   expr_t *e = malloc(sizeof(expr_t));
-  e->kind = EXPR_ASSIGN; e->assign.var = var; e->assign.rhs = rhs;
+  e->kind = EXPR_ASSIGN; e->assign.lhs = lhs; e->assign.rhs = rhs;
   e->line = e->col = 0;
   return e;
 }
@@ -650,7 +650,7 @@ int test_tr_expr_assign() {
   symtab_t *aenv = make_aenv();
   frame_t *f = make_frame();
   insert_local(aenv, f, "x", 0);
-  tr_exp_t *r = tr_expr(aenv, f, make_assign("x", make_int(42)));
+  tr_exp_t *r = tr_expr(aenv, f, make_assign(make_id("x"), make_int(42)));
   ASSERT_EQ(r->kind, TR_NX);
   ASSERT_EQ(r->nx->kind, TREE_MOVE);
   ASSERT_EQ(r->nx->move.s->kind, TREE_CONST);
@@ -658,3 +658,47 @@ int test_tr_expr_assign() {
   return 1;
 }
 REGISTER_TEST(test_tr_expr_assign);
+
+int test_tr_expr_field_assign() {
+  symtab_t *aenv = make_aenv();
+  frame_t *f = make_frame();
+  insert_local(aenv, f, "r", 1); /* escapes → frame slot */
+
+  /* set up r->ty as a record with field "x" at index 0 */
+  semty_t *field_ty = malloc(sizeof(semty_t)); field_ty->kind = SEMTY_INT;
+  field_ty_t *ft = malloc(sizeof(field_ty_t));
+  ft->name = "x"; ft->type = field_ty; ft->next = NULL;
+  semty_t *rec_ty = malloc(sizeof(semty_t));
+  rec_ty->kind = SEMTY_RECORD; rec_ty->record = ft;
+
+  expr_t *rec_id = make_id("r");
+  rec_id->ty = rec_ty;
+
+  expr_t *field = malloc(sizeof(expr_t));
+  field->kind = EXPR_FIELD; field->field_.record = rec_id;
+  field->field_.field = "x"; field->line = field->col = 0;
+
+  tr_exp_t *r = tr_expr(aenv, f, make_assign(field, make_int(99)));
+  ASSERT_EQ(r->kind, TR_NX);
+  ASSERT_EQ(r->nx->kind, TREE_MOVE);
+  ASSERT_EQ(r->nx->move.d->kind, TREE_MEM); /* lhs is a memory location */
+  ASSERT_EQ(r->nx->move.s->kind, TREE_CONST);
+  ASSERT_EQ(r->nx->move.s->const_, 99);
+  return 1;
+}
+REGISTER_TEST(test_tr_expr_field_assign);
+
+int test_tr_expr_index_assign() {
+  symtab_t *aenv = make_aenv();
+  frame_t *f = make_frame();
+  insert_local(aenv, f, "a", 0);
+  expr_t *lhs = make_index(make_id("a"), make_int(2));
+  tr_exp_t *r = tr_expr(aenv, f, make_assign(lhs, make_int(7)));
+  ASSERT_EQ(r->kind, TR_NX);
+  ASSERT_EQ(r->nx->kind, TREE_MOVE);
+  ASSERT_EQ(r->nx->move.d->kind, TREE_MEM); /* lhs is a memory location */
+  ASSERT_EQ(r->nx->move.s->kind, TREE_CONST);
+  ASSERT_EQ(r->nx->move.s->const_, 7);
+  return 1;
+}
+REGISTER_TEST(test_tr_expr_index_assign);

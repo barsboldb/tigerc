@@ -87,11 +87,36 @@ int test_parse_assign() {
     expr_t *e = parse_str("x := 42");
     ASSERT(e != NULL);
     ASSERT_EQ(e->kind, EXPR_ASSIGN);
-    ASSERT_STR_EQ(e->assign.var, "x");
+    ASSERT_EQ(e->assign.lhs->kind, EXPR_ID);
+    ASSERT_STR_EQ(e->assign.lhs->id, "x");
     ASSERT_EQ(e->assign.rhs->int_val, 42);
     return 1;
 }
 REGISTER_TEST(test_parse_assign);
+
+int test_parse_field_assign() {
+    expr_t *e = parse_str("r.name := 42");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_ASSIGN);
+    ASSERT_EQ(e->assign.lhs->kind, EXPR_FIELD);
+    ASSERT_STR_EQ(e->assign.lhs->field_.record->id, "r");
+    ASSERT_STR_EQ(e->assign.lhs->field_.field, "name");
+    ASSERT_EQ(e->assign.rhs->int_val, 42);
+    return 1;
+}
+REGISTER_TEST(test_parse_field_assign);
+
+int test_parse_index_assign() {
+    expr_t *e = parse_str("a[i] := 42");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_ASSIGN);
+    ASSERT_EQ(e->assign.lhs->kind, EXPR_INDEX);
+    ASSERT_STR_EQ(e->assign.lhs->index_.array->id, "a");
+    ASSERT_STR_EQ(e->assign.lhs->index_.index->id, "i");
+    ASSERT_EQ(e->assign.rhs->int_val, 42);
+    return 1;
+}
+REGISTER_TEST(test_parse_index_assign);
 
 int test_parse_call_no_args() {
     expr_t *e = parse_str("foo()");
