@@ -45,19 +45,20 @@ int main(int argc, char *argv[]) {
   semant_base_venv(tenv);
   semty_t *ty = trans_expr(ast);
 
-  if (ty) {
-    printf("type: ");
-    switch (ty->kind) {
-      case SEMTY_INT:    printf("int\n");    break;
-      case SEMTY_STRING: printf("string\n"); break;
-      case SEMTY_NIL:    printf("nil\n");    break;
-      case SEMTY_VOID:   printf("void\n");   break;
-      case SEMTY_RECORD: printf("record\n"); break;
-      case SEMTY_ARRAY:  printf("array\n");  break;
-      case SEMTY_NAME:   printf("name\n");   break;
-    }
-  } else {
-    printf("type: (error or unknown)\n");
+  if (!ty) {
+    fprintf(stderr, "aborting: type errors found\n");
+    return 1;
+  }
+
+  printf("type: ");
+  switch (ty->kind) {
+    case SEMTY_INT:    printf("int\n");    break;
+    case SEMTY_STRING: printf("string\n"); break;
+    case SEMTY_NIL:    printf("nil\n");    break;
+    case SEMTY_VOID:   printf("void\n");   break;
+    case SEMTY_RECORD: printf("record\n"); break;
+    case SEMTY_ARRAY:  printf("array\n");  break;
+    case SEMTY_NAME:   printf("name\n");   break;
   }
 
   printf("\n=== Translation ===\n");
