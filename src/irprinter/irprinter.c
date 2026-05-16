@@ -7,6 +7,12 @@ static void indent(int n) {
   for (int i = 0; i < n; i++) printf("  ");
 }
 
+static void print_label(label_t l) {
+  const char *name = label_name(l);
+  if (name) printf("%s", name);
+  else      printf("L%d", l);
+}
+
 static const char *relop_str(tree_relop_t op) {
   switch (op) {
     case TREE_EQ: return "=";
@@ -40,7 +46,7 @@ void print_tree_expr(tree_expr_t *e, int d) {
       indent(d); printf("TEMP t%d\n", e->temp);
       break;
     case TREE_NAME:
-      indent(d); printf("NAME %s\n", label_name(e->name));
+      indent(d); printf("NAME "); print_label(e->name); printf("\n");
       break;
     case TREE_MEM:
       indent(d); printf("MEM\n");
@@ -78,13 +84,11 @@ void print_tree_stmt(tree_stmt_t *s, int d) {
       print_tree_expr(s->exp, d + 1);
       break;
     case TREE_JUMP:
-      indent(d); printf("JUMP %s\n", label_name(s->jump_.dests[0]));
+      indent(d); printf("JUMP "); print_label(s->jump_.dests[0]); printf("\n");
       break;
     case TREE_CJUMP:
-      indent(d); printf("CJUMP %s true=%s false=%s\n",
-        relop_str(s->cjump.op),
-        label_name(s->cjump.true_),
-        label_name(s->cjump.false_));
+      indent(d); printf("CJUMP %s true=", relop_str(s->cjump.op));
+      print_label(s->cjump.true_); printf(" false="); print_label(s->cjump.false_); printf("\n");
       print_tree_expr(s->cjump.e1, d + 1);
       print_tree_expr(s->cjump.e2, d + 1);
       break;
@@ -93,7 +97,7 @@ void print_tree_stmt(tree_stmt_t *s, int d) {
       print_tree_stmt(s->seq.s2, d);
       break;
     case TREE_LABEL:
-      indent(d); printf("%s:\n", label_name(s->label));
+      indent(d); print_label(s->label); printf(":\n");
       break;
   }
 }
@@ -101,7 +105,7 @@ void print_tree_stmt(tree_stmt_t *s, int d) {
 void print_frags(void) {
   for (frag_t *f = frag_list(); f; f = f->next) {
     if (f->kind == FRAG_STRING) {
-      printf("STRING %s \"%s\"\n\n", label_name(f->string_.label), f->string_.str);
+      printf("STRING "); print_label(f->string_.label); printf(" \"%s\"\n\n", f->string_.str);
     } else {
       printf("PROC %s\n", f->proc_.frame->name);
       print_tree_stmt(f->proc_.body, 1);

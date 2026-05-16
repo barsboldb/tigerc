@@ -15,7 +15,7 @@ temp_t  temp_new() {
   return ++temp_count;
 }
 label_t label_new() {
-  return ++label_count;
+  return label_named(NULL);
 }
 
 label_t label_named(char *name) {
