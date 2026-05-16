@@ -60,7 +60,7 @@ int test_strings() {
 REGISTER_TEST(test_strings)
 
 int test_keywords() {
-    lexer_t l = lexer_init("if then else while for to do let in end break nil function var type");
+    lexer_t l = lexer_init("if then else while for to do let in end break nil function var type array of");
     ASSERT_EQ(next_token(&l).kind, TOK_IF);
     ASSERT_EQ(next_token(&l).kind, TOK_THEN);
     ASSERT_EQ(next_token(&l).kind, TOK_ELSE);
@@ -76,6 +76,8 @@ int test_keywords() {
     ASSERT_EQ(next_token(&l).kind, TOK_FUNCTION);
     ASSERT_EQ(next_token(&l).kind, TOK_VAR);
     ASSERT_EQ(next_token(&l).kind, TOK_TYPE);
+    ASSERT_EQ(next_token(&l).kind, TOK_ARRAY);
+    ASSERT_EQ(next_token(&l).kind, TOK_OF);
     ASSERT_EQ(next_token(&l).kind, TOK_EOF);
     return 1;
 }

@@ -17,7 +17,7 @@ static symtab_t *make_aenv() {
 }
 
 static frame_t *make_frame() {
-  return frame_new("test", NULL, 0);
+  return frame_new("test", NULL, 0, 0);
 }
 
 static access_t *insert_local(symtab_t *aenv, frame_t *frame, char *name, int escapes) {

@@ -600,6 +600,45 @@ int test_record_field_expr() {
 }
 REGISTER_TEST(test_record_field_expr);
 
+int test_array_type_dec() {
+    expr_t *e = parse_str("let type arrtype = array of int in 0 end");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_LET);
+    dec_t *d = e->let.dec_list->dec;
+    ASSERT_EQ(d->kind, DEC_TYPE);
+    ASSERT_STR_EQ(d->type.name, "arrtype");
+    ASSERT_EQ(d->type.ty->kind, TY_ARRAY);
+    ASSERT_STR_EQ(d->type.ty->array_of, "int");
+    return 1;
+}
+REGISTER_TEST(test_array_type_dec);
+
+int test_array_creation() {
+    expr_t *e = parse_str("arrtype [10] of 0");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_ARRAY);
+    ASSERT_STR_EQ(e->array.type_name, "arrtype");
+    ASSERT_EQ(e->array.size->int_val, 10);
+    ASSERT_EQ(e->array.init->int_val, 0);
+    return 1;
+}
+REGISTER_TEST(test_array_creation);
+
+int test_array_type_and_creation_in_let() {
+    expr_t *e = parse_str("let type arrtype = array of int var arr := arrtype [10] of 0 in arr end");
+    ASSERT(e != NULL);
+    ASSERT_EQ(e->kind, EXPR_LET);
+    dec_t *type_dec = e->let.dec_list->dec;
+    ASSERT_EQ(type_dec->kind, DEC_TYPE);
+    ASSERT_EQ(type_dec->type.ty->kind, TY_ARRAY);
+    dec_t *var_dec = e->let.dec_list->next->dec;
+    ASSERT_EQ(var_dec->kind, DEC_VAR);
+    ASSERT_EQ(var_dec->var.init->kind, EXPR_ARRAY);
+    ASSERT_STR_EQ(var_dec->var.init->array.type_name, "arrtype");
+    return 1;
+}
+REGISTER_TEST(test_array_type_and_creation_in_let);
+
 int test_record_in_let() {
     expr_t *e = parse_str("let type point = { x : int, y : int } in point { x = 1, y = 2 } end");
     ASSERT(e != NULL);
