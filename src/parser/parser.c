@@ -447,10 +447,21 @@ static expr_t *parse_lvalue(parser_t *p) {
       e = field;
     } else {
       advance(p);
-      expr_t *idx = make_expr(EXPR_INDEX, p->current.line, p->current.col);
-      idx->index_.array = e;
-      idx->index_.index = parse_expr(p);
+      expr_t *size_or_idx = parse_expr(p);
       if (expect(p, TOK_RBRACKET) < 0) return NULL;
+
+      if (p->current.kind == TOK_OF) {
+        advance(p);
+        expr_t *arr = make_expr(EXPR_ARRAY, e->line, e->col);
+        arr->array.type_name = e->id;
+        arr->array.size = size_or_idx;
+        arr->array.init = parse_expr(p);
+        return arr;
+      }
+
+      expr_t *idx = make_expr(EXPR_INDEX, e->line, e->col);
+      idx->index_.array = e;
+      idx->index_.index = size_or_idx;
       e = idx;
     }
   }

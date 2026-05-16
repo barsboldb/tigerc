@@ -166,6 +166,9 @@ static token_t lex_id_or_keyword(lexer_t *lexer, char first, int line, int col) 
   } else if (strcmp(buffer, "of") == 0) {
     free(buffer);
     return (token_t){ TOK_OF, .int_val = 0, line, col };
+  } else if (strcmp(buffer, "array") == 0) {
+    free(buffer);
+    return (token_t){ TOK_ARRAY, .int_val = 0, line, col };
   } else {
     return (token_t){ TOK_ID, .str_val = buffer, line, col };
   }
