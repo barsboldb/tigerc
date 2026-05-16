@@ -6,11 +6,12 @@
 symtab_t *venv;
 symtab_t *tenv;
 
-static env_entry_t *make_func_entry(param_ty_t *params, semty_t *ret) {
+static env_entry_t *make_func_entry(param_ty_t *params, semty_t *ret, int depth) {
   env_entry_t *e = malloc(sizeof(env_entry_t));
   e->kind        = ENV_FUNC;
   e->func.params = params;
   e->func.ret    = ret;
+  e->func.depth  = depth;
   return e;
 }
 
@@ -49,46 +50,47 @@ symtab_t *semant_base_venv(symtab_t *tenv) {
   symtab_insert(venv, "print",
     make_func_entry(
       make_param_ty(ty_string, NULL),
-      ty_void
+      ty_void,
+      0
     )
   );
-  symtab_insert(venv, "flush", make_func_entry(NULL, ty_void));
-  symtab_insert(venv, "getchar", make_func_entry(NULL, ty_string));
+  symtab_insert(venv, "flush", make_func_entry(NULL, ty_void, 0));
+  symtab_insert(venv, "getchar", make_func_entry(NULL, ty_string, 0));
   symtab_insert(venv, "ord",
     make_func_entry(
       make_param_ty(ty_string, NULL),
-      ty_int
+      ty_int, 0
     )
   );
   symtab_insert(venv, "chr",
     make_func_entry(
       make_param_ty(ty_int, NULL),
-      ty_string
+      ty_string, 0
     )
   );
   symtab_insert(venv, "size",
     make_func_entry(
       make_param_ty(ty_string, NULL),
-      ty_int
+      ty_int, 0
     )
   );
   symtab_insert(venv, "not",
     make_func_entry(
       make_param_ty(ty_int, NULL),
-      ty_int
+      ty_int, 0
     )
   );
   symtab_insert(venv, "exit",
     make_func_entry(
       make_param_ty(ty_int, NULL),
-      ty_void
+      ty_void, 0
     )
   );
   symtab_insert(venv, "concat",
     make_func_entry(
       make_param_ty(ty_string,
         make_param_ty(ty_string, NULL)),
-      ty_string
+      ty_string, 0
     )
   );
   symtab_insert(venv, "substring",
@@ -98,7 +100,7 @@ symtab_t *semant_base_venv(symtab_t *tenv) {
           make_param_ty(ty_int, NULL)
         )
       ),
-      ty_string
+      ty_string, 0
     )
   );
 

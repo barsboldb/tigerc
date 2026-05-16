@@ -25,6 +25,7 @@ typedef struct {
     struct {
       param_ty_t *params;
       semty_t    *ret;
+      int         depth;
     } func;
   };
 } env_entry_t;
