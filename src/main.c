@@ -6,6 +6,9 @@
 #include "semant.h"
 #include "trans.h"
 #include "frame.h"
+#include "irprinter.h"
+#include "frag.h"
+#include "tree.h"
 #include "symtab.h"
 #include "types.h"
 
@@ -60,9 +63,11 @@ int main(int argc, char *argv[]) {
   printf("\n=== Translation ===\n");
   symtab_t *aenv = symtab_new(64);
   symtab_enter_scope(aenv);
-  frame_t *top = frame_new("_main", NULL, 0, 0);
-  tr_expr(aenv, top, ast);
+  frame_t  *top = frame_new("_main", NULL, 0, 0);
+  tr_exp_t *ir  = tr_expr(aenv, top, ast);
+  frag_insert(frag_proc(top, tree_move(tree_temp(frame_rv()), un_ex(ir))));
   symtab_exit_scope(aenv);
+  print_frags();
 
   free(src);
   return 0;
