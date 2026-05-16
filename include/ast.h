@@ -1,6 +1,8 @@
 #ifndef AST_H
 #define AST_H
 
+struct semty_t;
+
 typedef enum {
   EXPR_INT,
   EXPR_STRING,
@@ -110,6 +112,7 @@ typedef struct field_list_t {
 
 typedef struct expr_t {
   expr_kind_t kind;
+  struct semty_t *ty;
   union {
     int   int_val;
     char *str_val;
@@ -157,6 +160,7 @@ typedef struct expr_t {
     struct {
       char        *id;
       expr_list_t *arg_list;
+      int          callee_depth;
     } call;
 
     expr_list_t *seq;

@@ -6,6 +6,8 @@
 symtab_t *venv;
 symtab_t *tenv;
 
+static int current_depth = 0;
+
 static env_entry_t *make_func_entry(param_ty_t *params, semty_t *ret, int depth) {
   env_entry_t *e = malloc(sizeof(env_entry_t));
   e->kind        = ENV_FUNC;
@@ -156,6 +158,7 @@ semty_t *trans_var(expr_t *e) {
         fprintf(stderr, "error: cannot use function as a variable\n");
         return NULL;
       }
+      e->ty = entry->var;
       return entry->var;
     }
     case EXPR_FIELD: {
@@ -175,7 +178,7 @@ semty_t *trans_var(expr_t *e) {
         fprintf(stderr, "error: unknown field '%s'\n", e->field_.field);
         return NULL;
       }
-
+      e->ty = field_ty->type;
       return field_ty->type;
     }
     case EXPR_INDEX: {
@@ -189,6 +192,7 @@ semty_t *trans_var(expr_t *e) {
         fprintf(stderr, "error: cannot access non-integer array index\n");
         return NULL;
       }
+      e->ty = array_ty->array;
       return array_ty->array;
     }
     default: return NULL;
@@ -213,6 +217,7 @@ void trans_dec_header(dec_t *dec) {
         p = p->next;
       }
       entry->func.params = p_ty;
+      entry->func.depth  = current_depth + 1;
       entry->func.ret    = dec->func.type_name ? symtab_lookup(tenv, dec->func.type_name) : NULL;
       symtab_insert(venv, dec->func.id, entry);
       return;
@@ -232,17 +237,21 @@ semty_t *trans_expr(expr_t *e) {
   switch (e->kind) {
     case EXPR_INT:
       s->kind = SEMTY_INT;
+      e->ty = s;
       return s;
     case EXPR_STRING:
       s->kind = SEMTY_STRING;
+      e->ty = s;
       return s;
     case EXPR_NIL:
       s->kind = SEMTY_NIL;
+      e->ty = s;
       return s;
     case EXPR_ID:
     case EXPR_FIELD:
     case EXPR_INDEX:
       s = trans_var(e);
+      e->ty = s;
       return s;
     case EXPR_ASSIGN: {
       env_entry_t *rhs = symtab_lookup(venv, e->assign.var);
@@ -259,6 +268,7 @@ semty_t *trans_expr(expr_t *e) {
         fprintf(stderr, "error: type mismatch in assign '%s'\n", e->assign.var);
         return NULL;
       }
+      e->ty = s;
       return s;
     }
     case EXPR_IF: {
@@ -283,6 +293,7 @@ semty_t *trans_expr(expr_t *e) {
         fprintf(stderr, "error: if expr type is ambigious\n");
         return NULL;
       }
+      e->ty = then;
       return then;
     }
     case EXPR_WHILE: {
@@ -293,6 +304,7 @@ semty_t *trans_expr(expr_t *e) {
       }
       trans_expr(e->while_.body);
       s->kind = SEMTY_VOID;
+      e->ty = s;
       return s;
     }
     case EXPR_FOR: {
@@ -307,6 +319,7 @@ semty_t *trans_expr(expr_t *e) {
         return NULL;
       }
       s->kind = SEMTY_VOID;
+      e->ty = s;
       return s;
     }
     case EXPR_CALL: {
@@ -334,6 +347,8 @@ semty_t *trans_expr(expr_t *e) {
         p = p->next;
         a = a->next;
       }
+      e->ty = f->func.ret;
+      e->call.callee_depth = f->func.depth;
       return f->func.ret;
     }
     case EXPR_SEQ: {
@@ -342,7 +357,9 @@ semty_t *trans_expr(expr_t *e) {
         trans_expr(seq->expr);
         seq = seq->next;
       }
-      return trans_expr(seq->expr);
+      semty_t *ty = trans_expr(seq->expr);
+      e->ty = ty;
+      return ty;
     }
     case EXPR_LET: {
       symtab_enter_scope(venv);
@@ -365,6 +382,7 @@ semty_t *trans_expr(expr_t *e) {
       }
       symtab_exit_scope(venv);
       symtab_exit_scope(tenv);
+      e->ty = result;
       return result;
     }
     case EXPR_BINOP: {
@@ -396,6 +414,7 @@ semty_t *trans_expr(expr_t *e) {
             return NULL;
           }
           res->kind = SEMTY_INT;
+          e->ty = res;
           return res;
         case OP_EQ:
         case OP_NEQ:
@@ -406,6 +425,7 @@ semty_t *trans_expr(expr_t *e) {
             return NULL;
           }
           res->kind = SEMTY_INT;
+          e->ty = res;
           return res;
       }
     }
@@ -437,6 +457,7 @@ semty_t *trans_expr(expr_t *e) {
         }
         field = field->next;
       }
+      e->ty = t;
       return t;
     }
     case EXPR_ARRAY: {
@@ -454,6 +475,7 @@ semty_t *trans_expr(expr_t *e) {
         fprintf(stderr, "error: array init type mismatch\n");
       }
       
+      e->ty = semty;
       return semty;
     }
   }
@@ -476,6 +498,7 @@ void trans_dec(dec_t *dec) {
         pty = pty->next;
       }
 
+      current_depth++;
       semty_t *body_ty = dec->func.body ? trans_expr(dec->func.body) : NULL;
       symtab_exit_scope(venv);
 
@@ -489,6 +512,7 @@ void trans_dec(dec_t *dec) {
         }
         entry->func.ret = body_ty;
       }
+      current_depth--;
       return;
     }
     case DEC_VAR: {

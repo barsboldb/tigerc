@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include "trans.h"
@@ -211,8 +212,7 @@ tr_exp_t *tr_expr(symtab_t *aenv, frame_t *frame, expr_t *e) {
     }
     case EXPR_CALL: {
       label_t l = label_named(e->call.id);
-      env_entry_t *callee = symtab_lookup(venv, e->call.id);
-      int callee_depth = callee->func.depth;
+      int callee_depth = e->call.callee_depth;
       int pass_sl = callee_depth > 0;
 
       expr_list_t *args = e->call.arg_list;
@@ -467,8 +467,6 @@ tr_exp_t *tr_dec(symtab_t *aenv, frame_t *frame, dec_t *d) {
         escapes[i] = p->param->escape;
       }
       frame_t *f = frame_new(d->func.id, escapes, n, frame->depth + 1);
-      env_entry_t *entry = symtab_lookup(venv, d->func.id);
-      entry->func.depth = f->depth;
       free(escapes);
       symtab_enter_scope(aenv);
       p = d->func.args;
@@ -510,8 +508,11 @@ tr_exp_t *tr_var(symtab_t *aenv, frame_t *frame, expr_t *e) {
     }
     case EXPR_FIELD: {
       tr_exp_t *base = tr_var(aenv, frame, e->field_.record);
-      semty_t *ty = trans_var(e->field_.record);
-      if (!ty || ty->kind != SEMTY_RECORD) return NULL;
+      semty_t *ty = e->ty;
+      if (!ty || ty->kind != SEMTY_RECORD) {
+        fprintf(stderr, "error: type error\n");
+        return NULL;
+      }
 
       int index = 0;
       for (field_ty_t *f = ty->record; f; f = f->next, index++) {
