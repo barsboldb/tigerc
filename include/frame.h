@@ -14,6 +14,7 @@ typedef enum {
 
 typedef struct access_t {
   access_kind_t kind;
+  int           depth;
   union {
     int offset;
     int reg;
@@ -25,9 +26,10 @@ typedef struct frame_t {
   access_t *formals;
   int       num_formals;
   int       local_count;
+  int       depth;
 } frame_t;
 
-frame_t  *frame_new(char *name, int *escapes, int num_params);
+frame_t  *frame_new(char *name, int *escapes, int num_params, int depth);
 access_t *frame_alloc_local(frame_t *f, int escapes);
 temp_t frame_fp(void);
 temp_t frame_rv(void);

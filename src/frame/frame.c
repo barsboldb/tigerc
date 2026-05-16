@@ -4,14 +4,25 @@
 
 const int WORD_SIZE = 8;
 
-frame_t  *frame_new(char *name, int *escapes, int num_params) {
+frame_t  *frame_new(char *name, int *escapes, int num_params, int depth) {
+  int i;
   frame_t *frame = malloc(sizeof(frame_t));
-  frame->name        = name;
-  frame->local_count = 0;
-  frame->formals     = malloc(sizeof(access_t) * num_params);
-  frame->num_formals = num_params;
-  for (int i = 0; i < num_params; i++) {
-    if (escapes[i]) {
+  frame->name  = name;
+  frame->depth = depth;
+  if (depth > 0) {
+    frame->formals = malloc(sizeof(access_t) * (num_params + 1));
+    frame->formals[0].kind   = ACCESS_FRAME;
+    frame->formals[0].offset = -WORD_SIZE;
+    frame->formals[0].depth  = depth;
+    frame->local_count       = i = 1;
+    frame->num_formals       = num_params + 1;
+  } else {
+    frame->formals     = malloc(sizeof(access_t) * num_params);
+    frame->local_count = i = 0;
+    frame->num_formals = num_params;
+  }
+  for (int ei = 0; ei < num_params; ei++, i++) {
+    if (escapes[ei]) {
       frame->formals[i].kind = ACCESS_FRAME;
       frame->formals[i].offset = -WORD_SIZE * (frame->local_count + 1);
       frame->local_count++;
@@ -19,13 +30,15 @@ frame_t  *frame_new(char *name, int *escapes, int num_params) {
       frame->formals[i].kind = ACCESS_REG;
       frame->formals[i].reg  = temp_new();
     }
+    frame->formals[i].depth = depth;
   }
   return frame;
 }
 
-access_t *frame_alloc_local(frame_t *f, int escapes) {
+access_t *frame_alloc_local(frame_t *f, int escape) {
   access_t *a = malloc(sizeof(access_t));
-  if (escapes) {
+  a->depth = f->depth;
+  if (escape) {
     f->local_count++;
     a->kind   = ACCESS_FRAME;
     a->offset = -WORD_SIZE * f->local_count;
