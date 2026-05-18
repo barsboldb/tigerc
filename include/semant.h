@@ -7,6 +7,8 @@
 
 extern symtab_t *venv;
 extern symtab_t *tenv;
+extern semty_t *error_type;
+int semant_error_count(void);
 
 typedef enum {
   ENV_VAR,

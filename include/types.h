@@ -2,6 +2,7 @@
 #define TYPES_H
 
 typedef enum {
+  SEMTY_ERROR,
   SEMTY_INT,
   SEMTY_STRING,
   SEMTY_NIL,

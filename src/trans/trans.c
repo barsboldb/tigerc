@@ -65,7 +65,7 @@ static tree_expr_t *frame_exp(access_t *a, frame_t *frame) {
 }
 
 tree_expr_t *un_ex(tr_exp_t *e) {
-  assert(e);
+  if (!e) return tree_const(0);
   switch (e->kind) {
     case TR_EX: {
       return e->ex;
@@ -102,7 +102,7 @@ tree_expr_t *un_ex(tr_exp_t *e) {
 }
 
 tree_stmt_t *un_nx(tr_exp_t *e) {
-  assert(e);
+  if (!e) return tree_exp(tree_const(0));
   switch (e->kind) {
     case TR_EX: {
       return tree_exp(e->ex);
@@ -120,7 +120,7 @@ tree_stmt_t *un_nx(tr_exp_t *e) {
 }
 
 cx_t un_cx(tr_exp_t *e) {
-  assert(e);
+  if (!e) { cx_t dummy = {0}; return dummy; }
   switch (e->kind) {
     case TR_EX: {
       tree_stmt_t *stm = tree_cjump(TREE_NE, e->ex, tree_const(0), 0, 0);

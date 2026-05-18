@@ -45,13 +45,14 @@ int main(int argc, char *argv[]) {
   semant_base_venv(tenv);
   semty_t *ty = trans_expr(ast);
 
-  if (!ty) {
-    fprintf(stderr, "aborting: type errors found\n");
+  if (semant_error_count() > 0) {
+    fprintf(stderr, "aborting: %d type error(s) found\n", semant_error_count());
     return 1;
   }
 
   printf("type: ");
   switch (ty->kind) {
+    case SEMTY_ERROR:  printf("error\n");  break;
     case SEMTY_INT:    printf("int\n");    break;
     case SEMTY_STRING: printf("string\n"); break;
     case SEMTY_NIL:    printf("nil\n");    break;

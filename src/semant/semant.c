@@ -3,8 +3,15 @@
 #include <string.h>
 #include "semant.h"
 
+#define IS_ERROR(ty) ((ty) == error_type)
+
 symtab_t *venv;
 symtab_t *tenv;
+
+static semty_t error_type_storage = { .kind = SEMTY_ERROR };
+semty_t *error_type = &error_type_storage;
+static int error_count = 0;
+int semant_error_count(void) { return error_count; }
 
 static int current_depth = 0;
 
@@ -117,8 +124,15 @@ static semty_t *actual_ty(symtab_t *tenv, semty_t *ty) {
 
 semty_t *trans_ty(ty_t *ty) {
   switch (ty->kind) {
-    case TY_NAME:
-      return (semty_t *)symtab_lookup(tenv, ty->alias);
+    case TY_NAME: {
+      semty_t *res = symtab_lookup(tenv, ty->alias);
+      if (!res) {
+        fprintf(stderr, "error: unknown type\n");
+        error_count++;
+        return error_type;
+      }
+      return res;
+    }
     case TY_ARRAY: {
       semty_t *s = malloc(sizeof(semty_t));
       s->kind = SEMTY_ARRAY;
@@ -152,20 +166,26 @@ semty_t *trans_var(expr_t *e) {
       env_entry_t *entry = symtab_lookup(venv, e->id);
       if (!entry) {
         fprintf(stderr, "error: undefined variable\n");
-        return NULL;
+        error_count++;
+        return error_type;
       }
       if (entry->kind != ENV_VAR) {
         fprintf(stderr, "error: cannot use function as a variable\n");
-        return NULL;
+        error_count++;
+        return error_type;
       }
       e->ty = entry->var;
       return entry->var;
     }
     case EXPR_FIELD: {
       semty_t *record_ty = trans_var(e->field_.record);
+      if (IS_ERROR(record_ty))
+        return error_type;
+
       if (record_ty->kind != SEMTY_RECORD) {
         fprintf(stderr, "error: field access is only allowed with record type\n");
-        return NULL;
+        error_count++;
+        return error_type;
       }
       field_ty_t *field_ty = record_ty->record;
 
@@ -176,26 +196,37 @@ semty_t *trans_var(expr_t *e) {
 
       if (!field_ty) {
         fprintf(stderr, "error: unknown field '%s'\n", e->field_.field);
-        return NULL;
+        error_count++;
+        return error_type;
       }
       e->ty = field_ty->type;
       return field_ty->type;
     }
     case EXPR_INDEX: {
       semty_t *array_ty = trans_var(e->index_.array);
+
+      if (IS_ERROR(array_ty))
+        return error_type;
+
       if (array_ty->kind != SEMTY_ARRAY) {
         fprintf(stderr, "error: cannot access index of non-array variable\n");
-        return NULL;
+        error_count++;
+        return error_type;
       }
       semty_t *index_ty = trans_expr(e->index_.index);
+
+      if (IS_ERROR(index_ty))
+        return error_type;
+
       if (index_ty->kind != SEMTY_INT) {
         fprintf(stderr, "error: cannot access non-integer array index\n");
-        return NULL;
+        error_count++;
+        return error_type;
       }
       e->ty = array_ty->array;
       return array_ty->array;
     }
-    default: return NULL;
+    default: return error_type;
   }
 }
 
@@ -251,13 +282,17 @@ semty_t *trans_expr(expr_t *e) {
     case EXPR_FIELD:
     case EXPR_INDEX:
       s = trans_var(e);
+
+      if (IS_ERROR(s))
+        return error_type;
+
       e->ty = s;
       return s;
     case EXPR_ASSIGN: {
       semty_t *rhs = trans_var(e->assign.lhs);
       semty_t *lhs = trans_expr(e->assign.rhs);
       s->kind = SEMTY_VOID;
-      if (!lhs || !rhs) return NULL;
+      if (IS_ERROR(lhs) || IS_ERROR(rhs)) return error_type;
       s->kind = SEMTY_VOID;
       if (rhs->kind != SEMTY_NIL && lhs->kind == SEMTY_RECORD) {
         e->ty = s;
@@ -271,34 +306,50 @@ semty_t *trans_expr(expr_t *e) {
     }
     case EXPR_IF: {
       semty_t *cond = trans_expr(e->if_.cond);
+
+      if (IS_ERROR(cond))
+        return error_type;
+
       if (cond->kind != SEMTY_INT) {
         fprintf(stderr, "error: if expr condition must be int\n");
-        return NULL;
+        error_count++;
+        return error_type;
       }
       semty_t *then = trans_expr(e->if_.then);
+
+      if (IS_ERROR(then))
+        return error_type;
+
       if (!e->if_.else_) {
         return then;
       }
       semty_t *else_ = trans_expr(e->if_.else_);
-      if (!else_ && !then) {
+      if (IS_ERROR(else_) && IS_ERROR(then)) {
         fprintf(stderr, "error: cannot infer return type, add a return type annotation");
-        return NULL;
+        error_count++;
+        return error_type;
       }
       if (!else_) {
         return then;
       }
       if (then->kind != else_->kind) {
         fprintf(stderr, "error: if expr type is ambigious\n");
-        return NULL;
+        error_count++;
+        return error_type;
       }
       e->ty = then;
       return then;
     }
     case EXPR_WHILE: {
       semty_t *cond = trans_expr(e->while_.cond);
+
+      if (IS_ERROR(cond))
+        return error_type;
+
       if (cond->kind != SEMTY_INT) {
         fprintf(stderr, "error: while expr condition must be int\n");
-        return NULL;
+        error_count++;
+        return error_type;
       }
       trans_expr(e->while_.body);
       s->kind = SEMTY_VOID;
@@ -308,13 +359,19 @@ semty_t *trans_expr(expr_t *e) {
     case EXPR_FOR: {
       semty_t *init = trans_expr(e->for_.init);
       semty_t *to   = trans_expr(e->for_.to);
+
+      if (IS_ERROR(init) || IS_ERROR(to))
+        return error_type;
+
       if (init->kind != to->kind) {
         fprintf(stderr, "error: for expr type mismatch\n");
-        return NULL;
+        error_count++;
+        return error_type;
       }
       if (init->kind != SEMTY_INT) {
         fprintf(stderr, "error: for expr iterator type should be int\n");
-        return NULL;
+        error_count++;
+				return error_type;
       }
       s->kind = SEMTY_VOID;
       e->ty = s;
@@ -324,26 +381,40 @@ semty_t *trans_expr(expr_t *e) {
       env_entry_t *f = symtab_lookup(venv, e->call.id);
       if (!f) {
         fprintf(stderr, "error: undefined function '%s'\n", e->call.id);
-        return NULL;
+        error_count++;
+				return error_type;
       }
       if (f->kind == ENV_VAR) {
         fprintf(stderr, "error: cannot invoke variable call\n");
-        return NULL;
+        error_count++;
+				return error_type;
       }
 
       param_ty_t *p = f->func.params;
       expr_list_t *a = e->call.arg_list;
+      int had_error = 0;
       while (p) {
         semty_t *arg_ty  = trans_expr(a->expr);
+
+        if (IS_ERROR(arg_ty)) {
+          had_error = 1;
+          continue;
+        }
+
         semty_t *param_ty = actual_ty(tenv, p->type);
         if (param_ty->kind != arg_ty->kind) {
           if (!(param_ty->kind == SEMTY_RECORD && arg_ty->kind == SEMTY_NIL)) {
             fprintf(stderr, "error: param type mismatch\n");
-            return NULL;
+            error_count++;
+            had_error = 1;
+            continue;
           }
         }
         p = p->next;
         a = a->next;
+      }
+      if (had_error) {
+        return error_type;
       }
       e->ty = f->func.ret;
       e->call.callee_depth = f->func.depth;
@@ -356,6 +427,10 @@ semty_t *trans_expr(expr_t *e) {
         seq = seq->next;
       }
       semty_t *ty = trans_expr(seq->expr);
+
+      if (IS_ERROR(ty))
+        return error_type;
+
       e->ty = ty;
       return ty;
     }
@@ -374,18 +449,33 @@ semty_t *trans_expr(expr_t *e) {
       }
       semty_t *result = NULL;
       expr_list_t *l = e->let.body;
+
+      int had_error = 0;
       while (l) {
         result = trans_expr(l->expr);
+        if (IS_ERROR(result)) {
+          had_error = 1;
+        }
+
         l = l->next;
       }
       symtab_exit_scope(venv);
       symtab_exit_scope(tenv);
+
+      if (had_error) {
+        return error_type;
+      }
+
       e->ty = result;
       return result;
     }
     case EXPR_BINOP: {
       semty_t *l = trans_expr(e->binop.left);
       semty_t *r = trans_expr(e->binop.right);
+
+      if (IS_ERROR(l) || IS_ERROR(r))
+        return error_type;
+
       semty_t *res = malloc(sizeof(semty_t));
 
       switch (e->binop.op) {
@@ -401,15 +491,17 @@ semty_t *trans_expr(expr_t *e) {
         case OP_OR:
           if (!l) {
             fprintf(stderr, "error: unknown types around binary operation\n");
-            return NULL;
+            return error_type;
           }
           if (l->kind != SEMTY_INT) {
             fprintf(stderr, "error: operands should be ints\n");
-            return NULL;
+            error_count++;
+            return error_type;
           }
           if (r->kind != SEMTY_INT) {
             fprintf(stderr, "error: operands should be ints\n");
-            return NULL;
+            error_count++;
+            return error_type;
           }
           res->kind = SEMTY_INT;
           e->ty = res;
@@ -420,7 +512,8 @@ semty_t *trans_expr(expr_t *e) {
           r = actual_ty(tenv, r);
           if (l->kind != r->kind) {
             fprintf(stderr, "error: operands should be same type\n");
-            return NULL;
+            error_count++;
+            return error_type;
           }
           res->kind = SEMTY_INT;
           e->ty = res;
@@ -429,8 +522,16 @@ semty_t *trans_expr(expr_t *e) {
     }
     case EXPR_RECORD: {
       semty_t *t = symtab_lookup(tenv, e->record.type_name);
+
+      if (!t) {
+        error_count++;
+        return error_type;
+      }
+
       if (t->kind != SEMTY_RECORD) {
         fprintf(stderr, "error: record type expected\n");
+        error_count++;
+        return error_type;
       }
       field_ty_t *field_ty = NULL;
       field_list_t *field = e->record.fields;
@@ -443,15 +544,25 @@ semty_t *trans_expr(expr_t *e) {
 
         semty_t *s = trans_expr(field->val);
 
+        if (IS_ERROR(s)) {
+          field = field->next;
+          continue;
+        }
+
         if (s->kind == SEMTY_NIL) {
           field = field->next;
           continue;
         }
         
         s = actual_ty(tenv, s);
+        if (!field_ty) {
+          field = field->next;
+          continue;
+        }
         semty_t *f = actual_ty(tenv, field_ty->type);
         if (s->kind != f->kind) {
           fprintf(stderr, "error: record field type mismatch\n");
+          error_count++;
         }
         field = field->next;
       }
@@ -460,17 +571,30 @@ semty_t *trans_expr(expr_t *e) {
     }
     case EXPR_ARRAY: {
       semty_t *semty = symtab_lookup(tenv, e->array.type_name);
+
+      if (!semty) {
+        error_count++;
+        return error_type;
+      }
+
       semty_t *size  = trans_expr(e->array.size);
       semty_t *init  = trans_expr(e->array.init);
 
+      if (IS_ERROR(size) || IS_ERROR(init))
+        return error_type;
+
       if (semty->kind != SEMTY_ARRAY) {
         fprintf(stderr, "error: array type expected\n");
+        error_count++;
+        return error_type;
       }
       if (size->kind != SEMTY_INT) {
         fprintf(stderr, "error: array size must be int\n");
+        error_count++;
       }
       if (init->kind != semty->array->kind) {
         fprintf(stderr, "error: array init type mismatch\n");
+        error_count++;
       }
       
       e->ty = semty;
@@ -501,12 +625,14 @@ void trans_dec(dec_t *dec) {
       symtab_exit_scope(venv);
 
       if (entry->func.ret) {
-        if (body_ty && body_ty->kind != entry->func.ret->kind) {
+        if (body_ty && !IS_ERROR(body_ty) && body_ty->kind != entry->func.ret->kind) {
           fprintf(stderr, "error function '%s' body type does not match declared return type\n", dec->func.id);
+          error_count++;
         }
       } else {
-        if (!body_ty) {
+        if (!body_ty || IS_ERROR(body_ty)) {
           fprintf(stderr, "error: cannot infer return type of '%s', add a return type annotation\n", dec->func.id);
+          error_count++;
         }
         entry->func.ret = body_ty;
       }
@@ -518,10 +644,18 @@ void trans_dec(dec_t *dec) {
       s->kind = ENV_VAR;
 
       semty_t *init_ty = trans_expr(dec->var.init);
+
+      if (IS_ERROR(init_ty)) {
+        s->var = error_type;
+        symtab_insert(venv, dec->var.id, s);
+        return;
+      }
+
       if (dec->var.type_name) {
         semty_t *declared = symtab_lookup(tenv, dec->var.type_name);
         if (declared->kind != init_ty->kind) {
           fprintf(stderr, "error: type mismatch in var declaration '%s'\n", dec->var.id);
+          error_count++;
         }
         s->var = declared;
       }
