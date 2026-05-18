@@ -249,7 +249,13 @@ void trans_dec_header(dec_t *dec) {
       }
       entry->func.params = p_ty;
       entry->func.depth  = current_depth + 1;
-      entry->func.ret    = dec->func.type_name ? symtab_lookup(tenv, dec->func.type_name) : NULL;
+      if (dec->func.type_name) {
+        entry->func.ret = symtab_lookup(tenv, dec->func.type_name);
+      } else {
+        semty_t *void_ty = malloc(sizeof(semty_t));
+        void_ty->kind = SEMTY_VOID;
+        entry->func.ret = void_ty;
+      }
       symtab_insert(venv, dec->func.id, entry);
       return;
     }
@@ -632,17 +638,9 @@ void trans_dec(dec_t *dec) {
       semty_t *body_ty = dec->func.body ? trans_expr(dec->func.body) : NULL;
       symtab_exit_scope(venv);
 
-      if (entry->func.ret) {
-        if (body_ty && !IS_ERROR(body_ty) && body_ty->kind != entry->func.ret->kind) {
-          fprintf(stderr, "error function '%s' body type does not match declared return type\n", dec->func.id);
-          error_count++;
-        }
-      } else {
-        if (!body_ty || IS_ERROR(body_ty)) {
-          fprintf(stderr, "error: cannot infer return type of '%s', add a return type annotation\n", dec->func.id);
-          error_count++;
-        }
-        entry->func.ret = body_ty;
+      if (body_ty && !IS_ERROR(body_ty) && body_ty->kind != entry->func.ret->kind) {
+        fprintf(stderr, "error: function '%s' body type does not match declared return type\n", dec->func.id);
+        error_count++;
       }
       current_depth--;
       return;

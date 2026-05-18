@@ -231,7 +231,7 @@ int test_trans_dec_func_no_params_no_ret() {
   ASSERT(entry != NULL);
   ASSERT_EQ(entry->kind, ENV_FUNC);
   ASSERT_EQ(entry->func.params, NULL);
-  ASSERT_EQ(entry->func.ret, NULL);
+  ASSERT_EQ(entry->func.ret->kind, SEMTY_VOID);
   return 1;
 }
 REGISTER_TEST(test_trans_dec_func_no_params_no_ret);
