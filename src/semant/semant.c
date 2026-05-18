@@ -300,12 +300,10 @@ semty_t *trans_expr(expr_t *e) {
       s->kind = SEMTY_VOID;
       if (IS_ERROR(lhs) || IS_ERROR(rhs)) return error_type;
       s->kind = SEMTY_VOID;
-      if (rhs->kind != SEMTY_NIL && lhs->kind == SEMTY_RECORD) {
-        e->ty = s;
-        return s;
-      }
-      if (lhs->kind != rhs->kind) {
+      int nil_to_record = rhs->kind == SEMTY_RECORD && lhs->kind == SEMTY_NIL;
+      if (!nil_to_record && lhs->kind != rhs->kind) {
         fprintf(stderr, "error: type mismatch in assignment\n");
+        error_count++;
       }
       e->ty = s;
       return s;
@@ -525,9 +523,13 @@ semty_t *trans_expr(expr_t *e) {
           l = actual_ty(tenv, l);
           r = actual_ty(tenv, r);
           if (l->kind != r->kind) {
-            fprintf(stderr, "error: operands should be same type\n");
-            error_count++;
-            return error_type;
+            int nil_rec = (l->kind == SEMTY_RECORD && r->kind == SEMTY_NIL) ||
+                          (l->kind == SEMTY_NIL && r->kind == SEMTY_RECORD);
+            if (!nil_rec) {
+              fprintf(stderr, "error: operands should be same type\n");
+              error_count++;
+              return error_type;
+            }
           }
           res->kind = SEMTY_INT;
           e->ty = res;
@@ -659,7 +661,8 @@ void trans_dec(dec_t *dec) {
 
       if (dec->var.type_name) {
         semty_t *declared = symtab_lookup(tenv, dec->var.type_name);
-        if (declared->kind != init_ty->kind) {
+        int nil_to_record = declared->kind == SEMTY_RECORD && init_ty->kind == SEMTY_NIL;
+        if (!nil_to_record && declared->kind != init_ty->kind) {
           fprintf(stderr, "error: type mismatch in var declaration '%s'\n", dec->var.id);
           error_count++;
         }
