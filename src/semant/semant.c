@@ -398,6 +398,8 @@ semty_t *trans_expr(expr_t *e) {
 
         if (IS_ERROR(arg_ty)) {
           had_error = 1;
+          p = p->next;
+          a = a->next;
           continue;
         }
 
@@ -407,7 +409,6 @@ semty_t *trans_expr(expr_t *e) {
             fprintf(stderr, "error: param type mismatch\n");
             error_count++;
             had_error = 1;
-            continue;
           }
         }
         p = p->next;
