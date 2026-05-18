@@ -351,7 +351,8 @@ semty_t *trans_expr(expr_t *e) {
         error_count++;
         return error_type;
       }
-      trans_expr(e->while_.body);
+      semty_t *body = trans_expr(e->while_.body);
+      if (IS_ERROR(body)) return error_type;
       s->kind = SEMTY_VOID;
       e->ty = s;
       return s;
@@ -423,13 +424,19 @@ semty_t *trans_expr(expr_t *e) {
     }
     case EXPR_SEQ: {
       expr_list_t *seq = e->seq;
+      if (!seq) {
+        s->kind = SEMTY_VOID;
+        e->ty = s;
+        return s;
+      }
+      int had_error = 0;
       while (seq->next) {
-        trans_expr(seq->expr);
+        if (IS_ERROR(trans_expr(seq->expr))) had_error = 1;
         seq = seq->next;
       }
       semty_t *ty = trans_expr(seq->expr);
 
-      if (IS_ERROR(ty))
+      if (had_error || IS_ERROR(ty))
         return error_type;
 
       e->ty = ty;
