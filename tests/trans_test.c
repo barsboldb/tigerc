@@ -629,6 +629,7 @@ int test_tr_var_field() {
   expr_t *e = malloc(sizeof(expr_t));
   e->kind = EXPR_FIELD;
   e->field_.record = make_id("r");
+  e->field_.record->ty = point_ty;
   e->field_.field  = "x";
   e->line = e->col = 0;
 

@@ -5,6 +5,10 @@
 #include <string.h>
 #include <stdlib.h>
 
+#define ASSERT_ERROR(result) \
+  ASSERT((result) != NULL); \
+  ASSERT_EQ((result)->kind, SEMTY_ERROR)
+
 static symtab_t *base_tenv() {
   tenv = symtab_new(16);
   semty_t *int_ty    = malloc(sizeof(semty_t));
@@ -72,7 +76,7 @@ int test_trans_ty_name_unknown() {
   base_tenv();
   ty_t *ty = make_name_ty("unknown");
   semty_t *result = trans_ty(ty);
-  ASSERT_EQ(result, NULL);
+  ASSERT_ERROR(result);
   return 1;
 }
 REGISTER_TEST(test_trans_ty_name_unknown);
@@ -618,7 +622,7 @@ int test_trans_var_id_undefined() {
   base_tenv();
   base_venv();
   semty_t *result = trans_var(make_id_expr("x"));
-  ASSERT_EQ(result, NULL);
+  ASSERT_ERROR(result);
   return 1;
 }
 REGISTER_TEST(test_trans_var_id_undefined);
@@ -630,7 +634,7 @@ int test_trans_var_id_function() {
   trans_dec_header(fd);
   trans_dec(fd);
   semty_t *result = trans_var(make_id_expr("f"));
-  ASSERT_EQ(result, NULL);
+  ASSERT_ERROR(result);
   return 1;
 }
 REGISTER_TEST(test_trans_var_id_function);
@@ -657,7 +661,7 @@ int test_trans_var_field_unknown() {
   semty_t *point_ty = symtab_lookup(tenv, "point");
   insert_var("p", point_ty);
   semty_t *result = trans_var(make_field_expr(make_id_expr("p"), "y"));
-  ASSERT_EQ(result, NULL);
+  ASSERT_ERROR(result);
   return 1;
 }
 REGISTER_TEST(test_trans_var_field_unknown);
@@ -682,7 +686,7 @@ int test_trans_var_index_non_int() {
   semty_t *arr_ty = symtab_lookup(tenv, "intarr");
   insert_var("a", arr_ty);
   semty_t *result = trans_var(make_index_expr(make_id_expr("a"), make_string_expr("bad")));
-  ASSERT_EQ(result, NULL);
+  ASSERT_ERROR(result);
   return 1;
 }
 REGISTER_TEST(test_trans_var_index_non_int);
@@ -693,7 +697,7 @@ int test_trans_var_field_on_non_record() {
   semty_t *int_ty = symtab_lookup(tenv, "int");
   insert_var("x", int_ty);
   semty_t *result = trans_var(make_field_expr(make_id_expr("x"), "foo"));
-  ASSERT_EQ(result, NULL);
+  ASSERT_ERROR(result);
   return 1;
 }
 REGISTER_TEST(test_trans_var_field_on_non_record);
@@ -704,7 +708,7 @@ int test_trans_var_index_on_non_array() {
   semty_t *int_ty = symtab_lookup(tenv, "int");
   insert_var("x", int_ty);
   semty_t *result = trans_var(make_index_expr(make_id_expr("x"), make_int_expr(0)));
-  ASSERT_EQ(result, NULL);
+  ASSERT_ERROR(result);
   return 1;
 }
 REGISTER_TEST(test_trans_var_index_on_non_array);
