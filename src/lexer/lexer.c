@@ -88,6 +88,9 @@ static token_t lex_string(lexer_t *lexer, int line, int col) {
       }
     } else if (c == '"') {
       break;
+    } else if (c == '\n') {
+      free(buffer);
+      return (token_t){ TOK_ERROR, .str_val = "unterminated string", line, col };
     } else if (c == '\0') {
       free(buffer);
       return (token_t){ TOK_ERROR, .str_val = "unterminated string", line, col };

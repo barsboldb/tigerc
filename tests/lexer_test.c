@@ -126,3 +126,23 @@ int test_unterminated_string() {
     return 1;
 }
 REGISTER_TEST(test_unterminated_string)
+
+int test_recover_after_unexpected_char() {
+    lexer_t l = lexer_init("@ 1");
+    ASSERT_EQ(next_token(&l).kind, TOK_ERROR);
+    token_t t = next_token(&l);
+    ASSERT_EQ(t.kind, TOK_INT);
+    ASSERT_EQ(t.int_val, 1);
+    return 1;
+}
+REGISTER_TEST(test_recover_after_unexpected_char)
+
+int test_recover_after_unterminated_string() {
+    lexer_t l = lexer_init("\"never\n 7");
+    ASSERT_EQ(next_token(&l).kind, TOK_ERROR);
+    token_t t = next_token(&l);
+    ASSERT_EQ(t.kind, TOK_INT);
+    ASSERT_EQ(t.int_val, 7);
+    return 1;
+}
+REGISTER_TEST(test_recover_after_unterminated_string)
