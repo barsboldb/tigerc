@@ -4,7 +4,7 @@
 
 typedef struct {
   char **names;
-  int    cap;
+  int cap;
 } ltab_t;
 
 static int temp_count = 0;
@@ -35,6 +35,6 @@ label_t label_named(char *name) {
   return label_count++;
 }
 
-char   *label_name(label_t l) {
+char *label_name(label_t l){
   return ltab.names[l];
 }

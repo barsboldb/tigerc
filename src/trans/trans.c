@@ -50,6 +50,41 @@ static tr_exp_t *tr_cx(cx_t cx) {
   return e;
 }
 
+static semty_t *actual_ty(semty_t *ty) {
+  while (ty && ty->kind == SEMTY_NAME && tenv) {
+    ty = symtab_lookup(tenv, ty->name);
+  }
+  return ty;
+}
+
+static semty_t *record_ty_from_expr(expr_t *e) {
+  semty_t *ty = e ? e->ty : NULL;
+  if (!ty && tenv && e && e->kind == EXPR_RECORD) {
+    ty = symtab_lookup(tenv, e->record.type_name);
+  }
+  ty = actual_ty(ty);
+  return (ty && ty->kind == SEMTY_RECORD) ? ty : NULL;
+}
+
+static field_list_t *find_field(field_list_t *fields, const char *name) {
+  for (; fields; fields = fields->next) {
+    if (strcmp(fields->name, name) == 0) return fields;
+  }
+  return NULL;
+}
+
+static int field_list_count(field_list_t *fields) {
+  int n = 0;
+  for (; fields; fields = fields->next) n++;
+  return n;
+}
+
+static int field_name_cmp(const void *a, const void *b) {
+  const field_list_t *fa = *(const field_list_t *const *)a;
+  const field_list_t *fb = *(const field_list_t *const *)b;
+  return strcmp(fa->name, fb->name);
+}
+
 static tree_expr_t *frame_exp(access_t *a, frame_t *frame) {
   if (!a) return NULL;
 
@@ -411,9 +446,13 @@ tr_exp_t *tr_expr(symtab_t *aenv, frame_t *frame, expr_t *e) {
       );
     }
     case EXPR_RECORD: {
-      // TODO: check named initialization. Current one is positional initialization
+      semty_t *record_ty = record_ty_from_expr(e);
       int n = 0;
-      for (field_list_t *p = e->record.fields; p; p = p->next, n++);
+      if (record_ty) {
+        for (field_ty_t *p = record_ty->record; p; p = p->next, n++);
+      } else {
+        n = field_list_count(e->record.fields);
+      }
       temp_t r = temp_new();
       tree_expr_t **alloc_actual = malloc(sizeof(tree_expr_t *));
       *alloc_actual = tree_const(n * WORD_SIZE);
@@ -423,16 +462,40 @@ tr_exp_t *tr_expr(symtab_t *aenv, frame_t *frame, expr_t *e) {
           tree_name(label_named("malloc")), alloc_actual, 1
         )
       );
-      field_list_t *fields = e->record.fields;
       tree_stmt_t *field_inits = NULL;
-      for (int i = 0; i < n; i++, fields = fields->next) {
-        tree_stmt_t *instr = tree_move(
-          tree_mem(tree_binop(TREE_ADD, tree_temp(r), tree_const(i * WORD_SIZE))),
-          un_ex(tr_expr(aenv, frame, fields->val))
-        );
-        field_inits = seq_append(field_inits, instr);
+      if (record_ty) {
+        int i = 0;
+        for (field_ty_t *ft = record_ty->record; ft; ft = ft->next, i++) {
+          field_list_t *field = find_field(e->record.fields, ft->name);
+          if (!field) continue;
+          tree_expr_t *base = field_inits ? tree_temp(r) : tree_eseq(alloc, tree_temp(r));
+          tree_stmt_t *instr = tree_move(
+            tree_mem(tree_binop(TREE_ADD, base, tree_const(i * WORD_SIZE))),
+            un_ex(tr_expr(aenv, frame, field->val))
+          );
+          field_inits = seq_append(field_inits, instr);
+        }
+      } else {
+        int count = field_list_count(e->record.fields);
+        field_list_t **ordered = malloc(sizeof(field_list_t *) * count);
+        field_list_t *fields = e->record.fields;
+        for (int idx = 0; idx < count; idx++, fields = fields->next) {
+          ordered[idx] = fields;
+        }
+        if (count > 1) {
+          qsort(ordered, count, sizeof(field_list_t *), field_name_cmp);
+        }
+        for (int i = 0; i < count; i++) {
+          tree_expr_t *base = field_inits ? tree_temp(r) : tree_eseq(alloc, tree_temp(r));
+          tree_stmt_t *instr = tree_move(
+            tree_mem(tree_binop(TREE_ADD, base, tree_const(i * WORD_SIZE))),
+            un_ex(tr_expr(aenv, frame, ordered[i]->val))
+          );
+          field_inits = seq_append(field_inits, instr);
+        }
+        free(ordered);
       }
-      tree_stmt_t *all = field_inits ? tree_seq(alloc, field_inits) : alloc;
+      tree_stmt_t *all = field_inits ? field_inits : alloc;
       return tr_ex(tree_eseq(all, tree_temp(r)));
     }
     case EXPR_ARRAY: {
