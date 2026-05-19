@@ -540,6 +540,7 @@ semty_t *trans_expr(expr_t *e) {
       semty_t *t = symtab_lookup(tenv, e->record.type_name);
 
       if (!t) {
+        fprintf(stderr, "error: undeclared type '%s'\n", e->record.type_name);
         error_count++;
         return error_type;
       }
@@ -661,6 +662,7 @@ void trans_dec(dec_t *dec) {
 
       if (dec->var.type_name) {
         semty_t *declared = symtab_lookup(tenv, dec->var.type_name);
+
         int nil_to_record = declared->kind == SEMTY_RECORD && init_ty->kind == SEMTY_NIL;
         if (!nil_to_record && declared->kind != init_ty->kind) {
           fprintf(stderr, "error: type mismatch in var declaration '%s'\n", dec->var.id);
