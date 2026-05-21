@@ -315,17 +315,33 @@ REGISTER_TEST(test_tr_expr_while);
 int test_tr_expr_for() {
   symtab_t *aenv = make_aenv();
   frame_t *f = make_frame();
-  tr_exp_t *r = tr_expr(aenv, f, make_for("i", make_int(0), make_int(10), make_int(0), 0));
+  expr_t *for_ = make_for("i", make_int(0), make_int(10), make_int(0), 0);
+  tr_exp_t *r = tr_expr(aenv, f, for_);
   ASSERT_EQ(r->kind, TR_NX);
   return 1;
 }
 REGISTER_TEST(test_tr_expr_for);
 
+static semty_t *make_record_ty(field_ty_t *fields) {
+  semty_t *ty = malloc(sizeof(semty_t));
+  ty->kind = SEMTY_RECORD;
+  ty->record = fields;
+  return ty;
+}
+
+static field_ty_t *make_field_ty(char *name, field_ty_t *next) {
+  field_ty_t *f = malloc(sizeof(field_ty_t));
+  f->name = name; f->type = NULL; f->next = next;
+  return f;
+}
+
 /* EXPR_RECORD: TR_EX whose expression is ESEQ(alloc+inits, temp) */
 int test_tr_expr_record_empty() {
   symtab_t *aenv = make_aenv();
   frame_t *f = make_frame();
-  tr_exp_t *r = tr_expr(aenv, f, make_record("point", NULL));
+  expr_t *rec = make_record("point", NULL);
+  rec->ty = make_record_ty(NULL);
+  tr_exp_t *r = tr_expr(aenv, f, rec);
   ASSERT_EQ(r->kind, TR_EX);
   ASSERT_EQ(r->ex->kind, TREE_ESEQ);
   /* statement side: MOVE(temp, call(malloc, [0])) */
@@ -342,7 +358,9 @@ int test_tr_expr_record_with_fields() {
   symtab_t *aenv = make_aenv();
   frame_t *f = make_frame();
   field_list_t *fields = make_field("x", make_int(1), make_field("y", make_int(2), NULL));
-  tr_exp_t *r = tr_expr(aenv, f, make_record("point", fields));
+  expr_t *rec = make_record("point", fields);
+  rec->ty = make_record_ty(make_field_ty("x", make_field_ty("y", NULL)));
+  tr_exp_t *r = tr_expr(aenv, f, rec);
   ASSERT_EQ(r->kind, TR_EX);
   ASSERT_EQ(r->ex->kind, TREE_ESEQ);
   /* statement: SEQ(malloc_move, field_inits) */
@@ -378,25 +396,28 @@ int test_tr_expr_record_canonical_field_order() {
   symtab_t *aenv = make_aenv();
   frame_t *f = make_frame();
   field_list_t *fields = make_field("y", make_int(2), make_field("x", make_int(1), NULL));
-  tr_exp_t *r = tr_expr(aenv, f, make_record("point", fields));
+  expr_t *rec = make_record("point", fields);
+  rec->ty = make_record_ty(make_field_ty("x", make_field_ty("y", NULL)));
+  tr_exp_t *r = tr_expr(aenv, f, rec);
   ASSERT_EQ(r->kind, TR_EX);
   ASSERT_EQ(r->ex->kind, TREE_ESEQ);
-  tree_stmt_t *seq = r->ex->eseq.s;
-  ASSERT_EQ(seq->kind, TREE_SEQ);
+  /* eseq.s = SEQ(alloc, SEQ(x_init, y_init)) */
+  tree_stmt_t *outer = r->ex->eseq.s;
+  ASSERT_EQ(outer->kind, TREE_SEQ);
+  tree_stmt_t *inits = outer->seq.s2; /* SEQ(x_init, y_init) */
+  ASSERT_EQ(inits->kind, TREE_SEQ);
   /* first init: MOVE(MEM(r + 0), x_val=1) */
-  tree_stmt_t *first = seq->seq.s1;
+  tree_stmt_t *first = inits->seq.s1;
   ASSERT_EQ(first->kind, TREE_MOVE);
   ASSERT_EQ(first->move.d->kind, TREE_MEM);
-  tree_expr_t *addr0 = first->move.d->mem;
-  ASSERT_EQ(addr0->binop.e2->const_, 0); /* offset 0 → x */
-  ASSERT_EQ(first->move.s->const_, 1);   /* value 1 → x=1 */
+  ASSERT_EQ(first->move.d->mem->binop.e2->const_, 0);    /* offset 0 → x */
+  ASSERT_EQ(first->move.s->const_, 1);                   /* value 1 */
   /* second init: MOVE(MEM(r + WORD_SIZE), y_val=2) */
-  tree_stmt_t *second = seq->seq.s2;
+  tree_stmt_t *second = inits->seq.s2;
   ASSERT_EQ(second->kind, TREE_MOVE);
   ASSERT_EQ(second->move.d->kind, TREE_MEM);
-  tree_expr_t *addr1 = second->move.d->mem;
-  ASSERT_EQ(addr1->binop.e2->const_, WORD_SIZE); /* offset WORD_SIZE → y */
-  ASSERT_EQ(second->move.s->const_, 2);           /* value 2 → y=2 */
+  ASSERT_EQ(second->move.d->mem->binop.e2->const_, WORD_SIZE); /* offset WORD_SIZE → y */
+  ASSERT_EQ(second->move.s->const_, 2);                        /* value 2 */
   return 1;
 }
 REGISTER_TEST(test_tr_expr_record_canonical_field_order);

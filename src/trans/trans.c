@@ -411,9 +411,8 @@ tr_exp_t *tr_expr(symtab_t *aenv, frame_t *frame, expr_t *e) {
       );
     }
     case EXPR_RECORD: {
-      // TODO: check named initialization. Current one is positional initialization
       int n = 0;
-      for (field_list_t *p = e->record.fields; p; p = p->next, n++);
+      for (field_ty_t *p = e->ty->record; p; p = p->next, n++);
       temp_t r = temp_new();
       tree_expr_t **alloc_actual = malloc(sizeof(tree_expr_t *));
       *alloc_actual = tree_const(n * WORD_SIZE);
@@ -423,12 +422,19 @@ tr_exp_t *tr_expr(symtab_t *aenv, frame_t *frame, expr_t *e) {
           tree_name(label_named("malloc")), alloc_actual, 1
         )
       );
-      field_list_t *fields = e->record.fields;
       tree_stmt_t *field_inits = NULL;
-      for (int i = 0; i < n; i++, fields = fields->next) {
+      int i = 0;
+      for (field_ty_t *cf = e->ty->record; cf; cf = cf->next, i++) {
+        tree_expr_t *val = tree_const(0);
+        for (field_list_t *sf = e->record.fields; sf; sf = sf->next) {
+          if (strcmp(sf->name, cf->name) == 0) {
+            val = un_ex(tr_expr(aenv, frame, sf->val));
+            break;
+          }
+        }
         tree_stmt_t *instr = tree_move(
           tree_mem(tree_binop(TREE_ADD, tree_temp(r), tree_const(i * WORD_SIZE))),
-          un_ex(tr_expr(aenv, frame, fields->val))
+          val
         );
         field_inits = seq_append(field_inits, instr);
       }
