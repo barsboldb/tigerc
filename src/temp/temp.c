@@ -35,6 +35,11 @@ label_t label_named(char *name) {
   return label_count++;
 }
 
-char   *label_name(label_t l) {
+char *label_name(label_t l) {
+  if (!ltab.names[l]) {
+    char *buf = malloc(16);
+    sprintf(buf, "L%d", l);
+    ltab.names[l] = buf;
+  }
   return ltab.names[l];
 }
