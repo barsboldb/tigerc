@@ -11,6 +11,7 @@
 #include "tree.h"
 #include "symtab.h"
 #include "types.h"
+#include "canon.h"
 
 int main(int argc, char *argv[]) {
   if (argc < 2) {
@@ -70,6 +71,15 @@ int main(int argc, char *argv[]) {
   frag_insert(frag_proc(top, tree_move(tree_temp(frame_rv()), un_ex(ir))));
   symtab_exit_scope(aenv);
   print_frags();
+
+  printf("\n=== Canonicalized IR ===\n");
+  for (frag_t *fr = frag_list(); fr; fr = fr->next) {
+    if (fr->kind != FRAG_PROC) continue;
+    printf("PROC %s\n", fr->proc_.frame->name);
+    stmt_list_t *stmts = linearize(fr->proc_.body);
+    for (stmt_list_t *sl = stmts; sl; sl = sl->next)
+      print_tree_stmt(sl->stmt, 1);
+  }
 
   free(src);
   return 0;
