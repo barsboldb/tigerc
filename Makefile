@@ -1,5 +1,5 @@
 CC      = gcc
-CFLAGS  = -Wall -Wextra -std=c11 -Iinclude
+CFLAGS  = -Wall -Wextra -std=c11 -Iinclude -MMD -MP
 DBGFLAGS = $(CFLAGS) -g -DDEBUG
 
 BUILD_DIR = build
@@ -51,3 +51,6 @@ run: build
 # --- Clean ---
 clean:
 	rm -rf $(BUILD_DIR)
+
+DEPS = $(OBJS:.o=.d)
+-include $(DEPS)
