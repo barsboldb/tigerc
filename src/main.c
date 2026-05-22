@@ -12,6 +12,7 @@
 #include "symtab.h"
 #include "types.h"
 #include "canon.h"
+#include "codegen.h"
 
 int main(int argc, char *argv[]) {
   if (argc < 2) {
@@ -79,6 +80,15 @@ int main(int argc, char *argv[]) {
     stmt_list_t *stmts = linearize(fr->proc_.body);
     for (stmt_list_t *sl = stmts; sl; sl = sl->next)
       print_tree_stmt(sl->stmt, 1);
+  }
+
+  printf("\n=== Abstract Assembly ===\n");
+  for (frag_t *fr = frag_list(); fr; fr = fr->next) {
+    if (fr->kind != FRAG_PROC) continue;
+    printf("PROC %s\n", fr->proc_.frame->name);
+    stmt_list_t *stmts = linearize(fr->proc_.body);
+    instr_t *instrs = codegen(fr->proc_.frame, stmts);
+    print_instrs(instrs);
   }
 
   free(src);

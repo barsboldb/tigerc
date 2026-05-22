@@ -31,6 +31,7 @@ typedef struct frame_t {
 
 frame_t  *frame_new(char *name, int *escapes, int num_params, int depth);
 access_t *frame_alloc_local(frame_t *f, int escapes);
+temp_t frame_arg_reg(int i);
 temp_t frame_fp(void);
 temp_t frame_rv(void);
 

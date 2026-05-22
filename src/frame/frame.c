@@ -49,6 +49,12 @@ access_t *frame_alloc_local(frame_t *f, int escape) {
   return a;
 }
 
+temp_t frame_arg_reg(int i) {
+  static temp_t regs[6] = {-1, -1, -1, -1, -1, -1};
+  if (regs[i] == -1) regs[i] = temp_new();
+  return regs[i];
+}
+
 temp_t frame_fp(void) {
   static temp_t fp = -1;
   if (fp == -1) fp = temp_new();

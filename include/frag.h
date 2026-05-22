@@ -18,7 +18,7 @@ typedef struct frag_t {
       char    *str;
     } string_;
     struct {
-      frame_t *frame;
+      frame_t     *frame;
       tree_stmt_t *body;
     } proc_;
   };
