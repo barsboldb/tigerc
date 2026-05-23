@@ -92,8 +92,15 @@ static exp_res_t *do_exp(tree_expr_t *e) {
       return r;
     }
     case TREE_CALL: {
+      tree_stmt_t *stmts = NULL;
+      tree_expr_t **args = malloc(e->call.num_actuals * sizeof(tree_expr_t *));
+      for (int i = 0; i < e->call.num_actuals; i++) {
+        exp_res_t *a = do_exp(e->call.actuals[i]);
+        stmts = seq_stmts(stmts, a->stmts);
+        args[i] = a->expr;
+      }
       temp_t t = temp_new();
-      r->stmts = tree_move(tree_temp(t), e);
+      r->stmts = seq_stmts(stmts, tree_move(tree_temp(t), tree_call(e->call.name, args, e->call.num_actuals)));
       r->expr  = tree_temp(t);
       return r;
     }
