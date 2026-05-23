@@ -174,11 +174,11 @@ semty_t *trans_var(expr_t *e) {
         error_count++;
         return error_type;
       }
-      e->ty = entry->var;
+      e->ty = actual_ty(tenv, entry->var);
       return entry->var;
     }
     case EXPR_FIELD: {
-      semty_t *record_ty = trans_var(e->field_.record);
+      semty_t *record_ty = actual_ty(tenv, trans_var(e->field_.record));
       if (IS_ERROR(record_ty))
         return error_type;
 
@@ -199,11 +199,11 @@ semty_t *trans_var(expr_t *e) {
         error_count++;
         return error_type;
       }
-      e->ty = field_ty->type;
+      e->ty = actual_ty(tenv, field_ty->type);
       return field_ty->type;
     }
     case EXPR_INDEX: {
-      semty_t *array_ty = trans_var(e->index_.array);
+      semty_t *array_ty = actual_ty(tenv, trans_var(e->index_.array));
 
       if (IS_ERROR(array_ty))
         return error_type;
