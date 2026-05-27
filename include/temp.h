@@ -8,5 +8,6 @@ temp_t  temp_new();
 label_t label_new();
 label_t label_named(char *name);
 char   *label_name(label_t l);
+int     temp_count();
 
 #endif

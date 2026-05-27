@@ -7,15 +7,19 @@ typedef struct {
   int    cap;
 } ltab_t;
 
-static int temp_count = 0;
+static int _temp_count = 0;
 static int label_count = 0;
 static ltab_t ltab = {NULL, 0};
 
 temp_t  temp_new() {
-  return ++temp_count;
+  return ++_temp_count;
 }
 label_t label_new() {
   return label_named(NULL);
+}
+
+int temp_count() {
+  return _temp_count;
 }
 
 label_t label_named(char *name) {
