@@ -195,6 +195,28 @@ tr_exp_t *tr_expr(symtab_t *aenv, frame_t *frame, expr_t *e) {
       return tr_ex(tree_name(l));
     }
     case EXPR_BINOP: {
+      if (e->binop.op == OP_AND) {
+        cx_t left  = un_cx(tr_expr(aenv, frame, e->binop.left));
+        cx_t right = un_cx(tr_expr(aenv, frame, e->binop.right));
+        label_t z = label_new();
+        do_patch(left.trues, z);
+        return tr_cx((cx_t){
+          tree_seq(left.stm, tree_seq(tree_label(z), right.stm)),
+          right.trues,
+          patch_list_join(left.falses, right.falses)
+        });
+      }
+      if (e->binop.op == OP_OR) {
+        cx_t left  = un_cx(tr_expr(aenv, frame, e->binop.left));
+        cx_t right = un_cx(tr_expr(aenv, frame, e->binop.right));
+        label_t z = label_new();
+        do_patch(left.falses, z);
+        return tr_cx((cx_t){
+          tree_seq(left.stm, tree_seq(tree_label(z), right.stm)),
+          patch_list_join(left.trues, right.trues),
+          right.falses
+        });
+      }
       if (cond_op(e->binop.op)) {
         tree_stmt_t *stm = tree_cjump(
           map_relop(e->binop.op),
