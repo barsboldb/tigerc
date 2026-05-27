@@ -42,6 +42,12 @@ int main(int argc, char *argv[]) {
   printf("=== AST ===\n");
   print_expr(ast, 0);
 
+  if (parser.error_count > 0) {
+    fprintf(stderr, "aborting: %d parse error(s) found\n", parser.error_count);
+    free(src);
+    return 1;
+  }
+
   printf("\n=== Semantic Analysis ===\n");
   symtab_t *tenv = semant_base_tenv();
   semant_base_venv(tenv);

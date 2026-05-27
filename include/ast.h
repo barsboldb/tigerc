@@ -77,6 +77,7 @@ typedef struct ty_t {
 
 typedef struct dec_t {
   dec_kind_t kind;
+  int line, col;
   union {
     struct {
       char          *id;

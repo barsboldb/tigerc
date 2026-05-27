@@ -8,6 +8,7 @@ typedef struct parser_t {
   lexer_t lexer;
   token_t current;
   token_t next;
+  int     error_count;
 } parser_t;
 
 parser_t parser_init(lexer_t lexer);

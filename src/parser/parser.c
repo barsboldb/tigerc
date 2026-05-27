@@ -7,9 +7,10 @@ static expr_t *parse_primary(parser_t *p);
 
 parser_t parser_init(lexer_t lexer) {
   parser_t p;
-  p.lexer   = lexer;
-  p.current = next_token(&p.lexer);
-  p.next    = next_token(&p.lexer);
+  p.lexer       = lexer;
+  p.current     = next_token(&p.lexer);
+  p.next        = next_token(&p.lexer);
+  p.error_count = 0;
   return p;
 }
 
@@ -66,6 +67,7 @@ static int expect(parser_t *parser, token_kind_t type) {
       parser->current.col,
       token_kind_name(type),
       token_kind_name(parser->current.kind));
+  parser->error_count++;
   return -1;
 }
 
@@ -83,9 +85,11 @@ static expr_t *make_expr(expr_kind_t kind, int line, int col) {
   return e;
 }
 
-static dec_t *make_dec(dec_kind_t kind) {
+static dec_t *make_dec(dec_kind_t kind, int line, int col) {
   dec_t *d = malloc(sizeof(dec_t));
   d->kind = kind;
+  d->line = line;
+  d->col  = col;
   if (kind == DEC_FUNC) {
     d->func.args = NULL;
   }
@@ -245,11 +249,12 @@ static field_list_t *fieldlist_insert(field_list_t *list, char *name, expr_t *va
 }
 
 static dec_t *parse_vardec(parser_t *p) {
+  token_t start = p->current;
   if (expect(p, TOK_VAR) < 0) return NULL;
   token_t c = p->current;
 
   if (expect(p, TOK_ID) < 0) return NULL;
-  dec_t *d = make_dec(DEC_VAR);
+  dec_t *d = make_dec(DEC_VAR, start.line, start.col);
   d->var.id = c.str_val;
 
   if (p->current.kind == TOK_COLON) {
@@ -272,11 +277,12 @@ static dec_t *parse_vardec(parser_t *p) {
 }
 
 static dec_t *parse_funcdec(parser_t *p) {
+  token_t start = p->current;
   if (expect(p, TOK_FUNCTION) < 0) return NULL;
   token_t c = p->current;
 
   if (expect(p, TOK_ID) < 0) return NULL;
-  dec_t *d = make_dec(DEC_FUNC);
+  dec_t *d = make_dec(DEC_FUNC, start.line, start.col);
   d->func.id = c.str_val;
 
   if (expect(p, TOK_LPAREN) < 0) return NULL;
@@ -309,10 +315,11 @@ static dec_t *parse_funcdec(parser_t *p) {
 }
 
 static dec_t *parse_typedec(parser_t *p) {
+  token_t start = p->current;
   if (expect(p, TOK_TYPE) < 0) return NULL;
   token_t current = p->current;
   if (expect(p, TOK_ID) < 0) return NULL;
-  dec_t *d = make_dec(DEC_TYPE);
+  dec_t *d = make_dec(DEC_TYPE, start.line, start.col);
   ty_t  *ty = malloc(sizeof(ty_t));
   d->type.name = current.str_val;
 
@@ -378,6 +385,7 @@ static expr_t *parse_let(parser_t *p) {
       declist = declist_insert(declist, d);
     } else {
       fprintf(stderr, "error: unexpected token in let declarations\n");
+      p->error_count++;
       return NULL;
     }
   }
@@ -388,7 +396,8 @@ static expr_t *parse_let(parser_t *p) {
 
   while (p->current.kind != TOK_END) {
     if (p->current.kind == TOK_EOF) {
-      fprintf(stderr, "unterminated let expression\n");
+      fprintf(stderr, "error: unterminated let expression\n");
+      p->error_count++;
       return NULL;
     }
 
@@ -497,6 +506,7 @@ static expr_t *parse_seq(parser_t *p) {
     if (p->current.kind == TOK_EOF) {
       fprintf(stderr, "error: %d:%d: unterminated expression sequence\n",
           e->line, e->col);
+      p->error_count++;
       return NULL;
     }
 
@@ -508,6 +518,7 @@ static expr_t *parse_seq(parser_t *p) {
       if (p->current.kind == TOK_RPAREN) {
         fprintf(stderr, "error: %d:%d: trailing semicolon in sequence\n",
             e->line, e->col);
+        p->error_count++;
         return NULL;
       }
     }
@@ -577,6 +588,12 @@ static expr_t *parse_primary(parser_t *p) {
     case TOK_ID:
       if (p->next.kind == TOK_LPAREN)   return parse_call(p);
       if (p->next.kind == TOK_LBRACE)   return parse_record(p);
+      if (p->next.kind == TOK_NIL) {
+        fprintf(stderr, "error: %d:%d: nil should not be preceded by type-id\n",
+            p->current.line, p->current.col);
+        p->error_count++;
+        return NULL;
+      }
       return parse_lvalue(p);
     default: return NULL;
   }
