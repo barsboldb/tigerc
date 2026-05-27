@@ -37,7 +37,7 @@ symtab_t *semant_base_tenv();
 
 semty_t *trans_expr(expr_t *e);
 semty_t *trans_var(expr_t *e);
-semty_t *trans_ty(ty_t *ty);
+semty_t *trans_ty(ty_t *ty, int line, int col);
 void     trans_dec_header(dec_t *d);
 void     trans_dec(dec_t *d);
 
